@@ -33,6 +33,7 @@ Status: the engine and the library (this draft). The AkikoPlus MIDI port
   one (any General MIDI SoundFont, copied there by the user), else Basic.
 - `src/gs_mt32mem.c`: the MT-32's memory and its system exclusive messages, step 1 of our own MT-32 engine
 - `src/gs_la.c`: one partial of the synthesiser kind (waves, filter, envelopes, LFO), step 2 of our own MT-32 engine
+- `src/gs_mt32.c`: notes from the timbres a song sends (partial pairs, ring modulation, parts, 32 partials), step 3 of our own MT-32 engine
   (`docs/MT32-ENGINE.md`); not yet used by the library.
 - `midi/`: the MIDI collection, 700 public domain pieces made from the Mutopia Project's public domain
   sources, each with its source in `midi/SOURCES.tsv` (`midi/README.md`). The part installs it as `Media:midi`

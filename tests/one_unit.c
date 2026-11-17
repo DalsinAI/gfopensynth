@@ -5,6 +5,7 @@
 #include "../src/gs_midi.c"
 #include "../src/gs_mt32mem.c"
 #include "../src/gs_la.c"
+#include "../src/gs_mt32.c"
 #include "../src/gs_rom.c"
 #include "../src/gs_sf2.c"
 #include "../src/gs_synth.c"

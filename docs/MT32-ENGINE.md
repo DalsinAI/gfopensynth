@@ -68,3 +68,32 @@ manual's description, not a measurement. Step 6 tunes them by ear against a
 real unit. Not read yet: the envelopes' time key follow and velocity follow,
 the filter's bias, the filter envelope's depth key follow and the pulse
 width's velocity sense.
+
+## Step 3 in detail
+
+`src/gs_mt32.c` takes MIDI and the MT-32's system exclusive messages and
+plays notes. It is not yet in the library: step 6 does that.
+
+- A note has up to four partials, joined in pairs by the timbre's two
+  structures: mixed, ring modulated, or the first partial with the ring.
+- 32 partials in all. When they run out, the oldest note whose key is up
+  goes first, then the oldest on a part holding more than its partial
+  reserve, then the playing part's own oldest.
+- Per part: program change, bender with the patch's range, key shift, fine
+  tune, level, pan, volume, expression, modulation, hold pedal, all notes
+  off. The rhythm part plays the keys whose rhythm setup names a timbre the
+  song sent.
+- Only timbres the song sent play: a write to a part's timbre temporary
+  area, or a patch that names timbre memory. Sampled (PCM) partials are
+  silent, and a part on a ROM timbre answers "not playable"
+  (`gs_mt32_playable`), so the caller keeps playing it by the General MIDI
+  map. Step 4 fills both in from the user's ROMs.
+- `tests/mt32_test.c` (43 checks): pitch, structures, program changes,
+  controllers, pan, the pedal, assign modes, running out of partials, the
+  rhythm part, reset, and 6000 arbitrary messages under the sanitizers.
+
+Our readings, to check against a real unit: the four assign modes (1 and 2
+give a key one note, 3 and 4 let it ring over itself; 2 and 4 keep what is
+sounding when partials run out), pan 0 as hard right, a rhythm timbre
+sounding at middle C, and a patch's fine tune reaching only partials whose
+bender switch is on.
