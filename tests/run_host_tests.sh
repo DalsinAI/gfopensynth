@@ -52,6 +52,7 @@ $CC -O1 -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/smf2wav" "$HERE/tools/smf2w
 # the MIDI collection (midi/, installed to Media:midi): each file has its source and licence, opens and sounds
 if command -v python3 >/dev/null 2>&1; then
     python3 "$HERE/tests/midi_collection_check.py" "$HERE/midi"
+    python3 "$HERE/tools/make_dance_mid.py" --check
 fi
 $CC -O1 -g $SAN -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/midi_collection_test" "$HERE/tests/midi_collection_test.c" \
     "$HERE/src/gs_midi.c" "$HERE/src/gs_sf2.c" "$HERE/src/gs_synth.c" "$HERE/src/gs_tables.c" -lm

@@ -18,3 +18,11 @@ Parts that rest for their first 20 seconds, and files over 200 KB, are
 left out. `tests/midi_collection_check.py` and
 `tests/midi_collection_test.c` hold the collection to these rules and
 play every file through the engine.
+
+## Dance
+
+`Dance/` holds dance tunes of our own: four on the floor with a heavy kick
+and bass, 124 to 130 beats a minute. `tools/make_dance_mid.py` writes them
+from its tables, note by note; nothing is taken from anyone's tune. They
+are ours, under this repository's MIT licence. GFOpenBlanker plays from
+this drawer when its `PLAYMIDI` setting is on.
