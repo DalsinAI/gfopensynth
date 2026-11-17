@@ -1,8 +1,10 @@
 /* GFOpenSynth Basic (tools/make_basic_sf2.c) through the reader and the
  * synth: every General MIDI program and the kit are there and sound, a
- * loud chord does not clip, high notes use the wave with few harmonics.
+ * loud chord does not clip, high notes use the wave with few harmonics,
+ * every instrument is in tune (within a cent of equal temperament, A = 440).
  *   basic_sf2_test basic.sf2
  * MIT, Copyright (c) 2026 AmiCradle Team. */
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +34,25 @@ static long peak(int frames)
 		if (v > p) p = v;
 	}
 	return p;
+}
+
+/* how far the note in buf (n frames from one key) is from that key's
+ * pitch, in cents: its fundamental's phase over the first and the second
+ * half says how fast it turns against the pitch the key should have */
+static double cents_off(int key, int n)
+{
+	double pi = 3.14159265358979323846, f0 = 440.0 * pow(2.0, (key - 69) / 12.0);
+	double re[2] = { 0, 0 }, im[2] = { 0, 0 }, turn;
+	int h = n / 2, half, i;
+	for (half = 0; half < 2; half++)
+		for (i = 0; i < h; i++) {
+			double w = 0.5 - 0.5 * cos(2 * pi * i / h), a = 2 * pi * f0 * (half * h + i) / RATE;
+			double x = (buf[(half * h + i) * 2] + buf[(half * h + i) * 2 + 1]) * w;
+			re[half] += x * cos(a);
+			im[half] -= x * sin(a);
+		}
+	turn = atan2(im[1] * re[0] - re[1] * im[0], re[1] * re[0] + im[1] * im[0]);
+	return 1200.0 * log2((f0 + turn / (2 * pi) * RATE / h) / f0);
 }
 
 int main(int argc, char **argv)
@@ -75,6 +96,34 @@ int main(int argc, char **argv)
 		if (gs_synth_active(&syn)) { quiet++; printf("program %d does not end: %d voices\n", p, gs_synth_active(&syn)); }
 	}
 	CHECK(quiet == 0);
+
+	/* every instrument is in tune, low and high, on both of its waves */
+	quiet = 0;
+	for (p = 0; p < 128; p += 8) {
+		static const int keys[] = { 36, 48, 60, 69, 71, 72, 84, 96 };
+		for (k = 0; k < (int)(sizeof keys / sizeof keys[0]); k++) {
+			double off;
+			gs_synth_reset(&syn);
+			msg(0xC0, p, 0);
+			msg(0x90, keys[k], 100);
+			gs_synth_render(&syn, buf, RATE / 4);
+			gs_synth_render(&syn, buf, RATE / 2);
+			off = cents_off(keys[k], RATE / 2);
+			if (off < -1.0 || off > 1.0) { quiet++; printf("program %d key %d is %.2f cents out\n", p, keys[k], off); }
+		}
+	}
+	CHECK(quiet == 0);
+	/* and the check itself hears a note that is out: the same key, bent 3 cents */
+	gs_synth_reset(&syn);
+	msg(0xC0, 80, 0);
+	msg(0xE0, 0, 0x41);                                  /* +128 of 8192 at the usual range of 2 semitones: 3.1 cents */
+	msg(0x90, 69, 100);
+	gs_synth_render(&syn, buf, RATE / 4);
+	gs_synth_render(&syn, buf, RATE / 2);
+	{
+		double off = cents_off(69, RATE / 2);
+		CHECK(off > 2.9 && off < 3.4);
+	}
 
 	/* the kit: every General MIDI drum key sounds, and ends by itself */
 	quiet = 0;

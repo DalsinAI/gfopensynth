@@ -31,17 +31,26 @@ def note(ev, ch, tick, key, length, vel):
     ev.append((tick, 1, bytes([0x90 | ch, key, vel])))
     ev.append((tick + length, 0, bytes([0x80 | ch, key, 0])))
 
-# the chords, a bar each: root (bass), then the triad around middle C
-CHORDS = {"C": (36, (60, 64, 67)), "Am": (33, (57, 60, 64)), "F": (29, (57, 60, 65)), "G": (31, (59, 62, 67)),
-          "Em": (28, (59, 64, 67)), "Dm": (26, (57, 62, 65))}
+# the chords, a bar each: root (bass), the triad around middle C, and the
+# lead's root (the chord's root, an octave or two up)
+CHORDS = {"C": (36, (60, 64, 67), 72), "Am": (33, (57, 60, 64), 69), "F": (29, (57, 60, 65), 65), "G": (31, (59, 62, 67), 67),
+          "Em": (28, (59, 64, 67), 64), "Dm": (26, (57, 62, 65), 62)}
 SONG = ["C", "Am", "F", "G", "C", "Am", "F", "G", "F", "G", "Em", "Am", "Dm", "G", "C", "C"]
-# the lead: (beat in the bar in half beats, key offset from the chord's top note, length in half beats)
+# the lead: (beat in the bar in half beats, steps of the C major scale above
+# the chord's root, length in half beats). Steps 0, 2, 4 and 7 are the
+# chord's own notes; every note is in the key.
 PHRASES = [
-    [(0, 12, 2), (2, 9, 1), (3, 5, 1), (4, 7, 3), (7, 5, 1)],
-    [(0, 5, 1), (1, 7, 1), (2, 9, 2), (4, 12, 2), (6, 9, 2)],
-    [(0, 12, 3), (3, 14, 1), (4, 12, 2), (6, 7, 2)],
-    [(0, 7, 2), (2, 5, 2), (4, 7, 4)],
+    [(0, 7, 2), (2, 5, 1), (3, 4, 1), (4, 2, 3), (7, 4, 1)],
+    [(0, 2, 1), (1, 4, 1), (2, 5, 2), (4, 7, 2), (6, 4, 2)],
+    [(0, 7, 3), (3, 8, 1), (4, 7, 2), (6, 4, 2)],
+    [(0, 4, 2), (2, 2, 2), (4, 4, 4)],
 ]
+SCALE = (0, 2, 4, 5, 7, 9, 11)
+
+def in_key(root, steps):
+    """the key steps of the C major scale above root (a note of that scale)"""
+    at = SCALE.index(root % 12) + steps
+    return root - root % 12 + 12 * (at // 7) + SCALE[at % 7]
 
 def build():
     tempo = [(0, 0, b"\xFF\x51\x03" + struct.pack(">I", 60000000 // 112)[1:])]
@@ -52,7 +61,7 @@ def build():
     drums = []
     for bar, name in enumerate(SONG):
         t = bar * BAR
-        root, triad = CHORDS[name]
+        root, triad, top = CHORDS[name]
         last = bar == len(SONG) - 1
         for k in triad:                                   # strings hold the chord
             note(pad, 1, t, k, BAR - 6, 70)
@@ -64,10 +73,10 @@ def build():
             note(piano, 3, t + i * 48, triad[(0, 1, 2, 1, 2, 1, 0, 1)[i]] + 12, 44, 72 if i % 2 else 84)
         if bar >= 4:                                      # the lead comes in at bar 5
             if last:
-                note(lead, 0, t, triad[0] + 12, BAR, 100)
+                note(lead, 0, t, top, BAR, 100)
             else:
                 for at, off, ln in PHRASES[(bar - 4) % 4]:
-                    note(lead, 0, t + at * 48, triad[0] + off, ln * 48 - 6, 100)
+                    note(lead, 0, t + at * 48, in_key(top, off), ln * 48 - 6, 100)
         if last:
             note(drums, 9, t, 36, 24, 120); note(drums, 9, t, 49, 24, 110)
             continue
