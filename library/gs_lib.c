@@ -201,7 +201,11 @@ static struct GSSynth *L_GSOpenSynthA(REG(a0, const struct TagItem *tags), REG(a
 			else
 				sf = (CONST_STRPTR)"DEVS:SoundFonts/default.sf2";
 		}
-		if (!(s->sfdata = load_file(sf, &s->sflen, &err))) {
+		s->sfdata = load_file(sf, &s->sflen, &err);
+		/* no SoundFont named and none installed as the default: our own small one */
+		if (!s->sfdata && !tag_data(tags, GSA_SoundFont, 0) && sf != (CONST_STRPTR)name)
+			s->sfdata = load_file((CONST_STRPTR)"DEVS:SoundFonts/basic.sf2", &s->sflen, &err);
+		if (!s->sfdata) {
 			free_synth(s);
 			SetIoErr(err);
 			return NULL;

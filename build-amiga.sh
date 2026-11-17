@@ -8,7 +8,9 @@
 #   HOST_TESTS=0  skip the PC tests (tests/run_host_tests.sh)
 # Outputs: lib/gfopensynth.library (copy to LIBS:), lib/libgfopensynth.a
 # (the link stub: <gfopensynth.h> and -lgfopensynth), c/PlaySynth,
-# include/, docs/.
+# soundfonts/basic.sf2 (GFOpenSynth Basic, made by tools/make_basic_sf2.c;
+# copy to DEVS:SoundFonts/), demo/gfopensynth-demo.mid (a tune of our own
+# to hear it with), include/, docs/.
 # The FPU check: the library and the stub use no floating point at all (the
 # synth is integer only); the build fails if either links a soft-float
 # routine.
@@ -29,6 +31,7 @@ INC="-I$HERE/include -I$HERE/src"
 if command -v python3 >/dev/null 2>&1; then
     python3 "$HERE/tools/gen_headers.py" --check
     python3 "$HERE/tools/gen_tables.py" --check
+    python3 "$HERE/tools/make_demo_mid.py" --check
 fi
 if [ "${HOST_TESTS:-1}" != 0 ] && command -v "${HOST_CC:-cc}" >/dev/null 2>&1; then
     OUT="$OUT/host" sh "$HERE/tests/run_host_tests.sh"
@@ -63,7 +66,13 @@ if "$NM" -u "$OUT/lib/gfopensynth.library" | grep . ; then
     echo "gfopensynth.library has undefined symbols"; exit 1
 fi
 
+# GFOpenSynth Basic, our own SoundFont (made on the PC that builds)
+mkdir -p "$OUT/soundfonts" "$OUT/demo"
+cp "$HERE/demo/gfopensynth-demo.mid" "$OUT/demo/"
+"${HOST_CC:-cc}" -O1 -o "$OUT/obj/make_basic_sf2" "$HERE/tools/make_basic_sf2.c" -lm
+"$OUT/obj/make_basic_sf2" "$OUT/soundfonts/basic.sf2"
+
 "$CC" $CFLAGS -noixemul -o "$OUT/c/PlaySynth" "$HERE/command/playsynth.c" -L"$OUT/lib" -lgfopensynth
 echo "$OUT/c/PlaySynth ($(wc -c < "$OUT/c/PlaySynth") bytes)"
-(cd "$OUT" && sha256sum lib/gfopensynth.library lib/libgfopensynth.a c/PlaySynth > SHA256SUMS)
+(cd "$OUT" && sha256sum lib/gfopensynth.library lib/libgfopensynth.a c/PlaySynth soundfonts/basic.sf2 > SHA256SUMS)
 cat "$OUT/SHA256SUMS"

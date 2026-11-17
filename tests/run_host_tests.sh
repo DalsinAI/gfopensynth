@@ -24,3 +24,13 @@ if $CC -m32 -o "$OUT/san32" "$OUT/san.c" 2>/dev/null; then
 fi
 # the engine as one translation unit (as the runtime builds it)
 $CC -O1 -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/one_unit" "$HERE/tests/one_unit.c" && "$OUT/one_unit" && echo "PASS: one translation unit"
+# GFOpenSynth Basic, our own SoundFont: made, then read and played
+$CC -O1 -Wall -Wextra -Werror -o "$OUT/make_basic_sf2" "$HERE/tools/make_basic_sf2.c" -lm
+"$OUT/make_basic_sf2" "$OUT/basic.sf2"
+$CC -O1 -g $SAN -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/basic_sf2_test" "$HERE/tests/basic_sf2_test.c" \
+    "$HERE/src/gs_midi.c" "$HERE/src/gs_sf2.c" "$HERE/src/gs_synth.c" "$HERE/src/gs_tables.c" -lm
+"$OUT/basic_sf2_test" "$OUT/basic.sf2"
+# the demo tune through the engine into a WAV (tools/smf2wav.c): it plays to its end
+$CC -O1 -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/smf2wav" "$HERE/tools/smf2wav.c" \
+    "$HERE/src/gs_midi.c" "$HERE/src/gs_sf2.c" "$HERE/src/gs_synth.c" "$HERE/src/gs_tables.c" -lm
+"$OUT/smf2wav" "$OUT/basic.sf2" "$HERE/demo/gfopensynth-demo.mid" "$OUT/gfopensynth-demo.wav"

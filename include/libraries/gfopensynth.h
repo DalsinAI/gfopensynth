@@ -27,7 +27,7 @@ struct GSSynth;
 #define GSA_Engine    (GSA_Dummy + 2)  /* (ULONG) GSE_ (default GSE_GM) */
 #define GSA_Rate      (GSA_Dummy + 3)  /* (ULONG) frames a second on the 68k (default 22050, 8000 to 48000) */
 #define GSA_Voices    (GSA_Dummy + 4)  /* (ULONG) voices on the 68k, 1 to 64 (default 24, or ENV:GFOpenSynth/Voices) */
-#define GSA_SoundFont (GSA_Dummy + 5)  /* (STRPTR) the SoundFont on the 68k (default ENV:GFOpenSynth/SoundFont, else DEVS:SoundFonts/default.sf2) */
+#define GSA_SoundFont (GSA_Dummy + 5)  /* (STRPTR) the SoundFont on the 68k (default ENV:GFOpenSynth/SoundFont, else DEVS:SoundFonts/default.sf2, else our own DEVS:SoundFonts/basic.sf2) */
 #define GSA_Unit      (GSA_Dummy + 6)  /* (ULONG) ahi.device unit for GSOUT_AHI (default 0) */
 #define GSA_Volume    (GSA_Dummy + 7)  /* (ULONG) also GSGetAttr: 0 to GS_VOLUME_FULL (default full) */
 #define GSA_Loop      (GSA_Dummy + 8)  /* (BOOL) GSPlayFileA, GSPlayMemA: play it again at its end (default FALSE) */

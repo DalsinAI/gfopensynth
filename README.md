@@ -26,6 +26,16 @@ Status: the engine and the library (this draft). The AkikoPlus MIDI port
   (no floating point, nothing from a C library), `lib/libgfopensynth.a`
   (`<gfopensynth.h>`, `-lgfopensynth`), `c/PlaySynth`.
 
+- `soundfonts/basic.sf2` (built by `tools/make_basic_sf2.c`): GFOpenSynth
+  Basic, our own small General MIDI SoundFont (129 presets, under 200 KB),
+  every sample made from arithmetic, so music plays where no other SoundFont
+  is installed. The library uses `DEVS:SoundFonts/default.sf2` when there is
+  one (any General MIDI SoundFont, copied there by the user), else Basic.
+- `demo/gfopensynth-demo.mid`: a tune of our own (`tools/make_demo_mid.py`).
+  `tools/smf2wav.c` plays a MIDI file into a WAV on a PC with the same engine.
+- `sh package.sh OUT DEST VERSION`: the release files (the GFOpenUp part
+  `Parts/GFOpenSynth`, the SDK, SHA256SUMS).
+
 - `src/gs_midi.c`: the port's byte stream parser (running status, SysEx,
   real-time bytes) and a Standard MIDI File reader and player
 - `src/gs_sf2.c`: SoundFont 2 reader (SF2 2.04), in place, no copies
