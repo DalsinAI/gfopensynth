@@ -27,15 +27,20 @@ $CC -O1 -g $SAN -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/mt32mem_test" "$HER
 "$OUT/mt32mem_test"
 $CC -O1 -g $SAN -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/la_test" "$HERE/tests/la_test.c" "$HERE/src/gs_la.c" "$HERE/src/gs_tables.c" -lm
 "$OUT/la_test"
-$CC -O1 -g $SAN -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/mt32_test" "$HERE/tests/mt32_test.c" "$HERE/src/gs_mt32.c" "$HERE/src/gs_la.c" "$HERE/src/gs_mt32mem.c" "$HERE/src/gs_tables.c" -lm
+$CC -O1 -g $SAN -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/mt32_test" "$HERE/tests/mt32_test.c" "$HERE/src/gs_mt32.c" "$HERE/src/gs_mt32rom.c" "$HERE/src/gs_la.c" "$HERE/src/gs_mt32mem.c" "$HERE/src/gs_tables.c" -lm
 "$OUT/mt32_test"
+# step 4, part one: groups A and B from a control ROM, in both layouts (no Roland ROM: images the test writes)
+$CC -O1 -g $SAN -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/mt32rom_test" "$HERE/tests/mt32rom_test.c" "$HERE/src/gs_mt32rom.c" "$HERE/src/gs_mt32.c" "$HERE/src/gs_la.c" "$HERE/src/gs_mt32mem.c" "$HERE/src/gs_tables.c" -lm
+"$OUT/mt32rom_test"
 if $CC -m32 -o "$OUT/san32" "$OUT/san.c" 2>/dev/null; then
     $CC -m32 -O1 -g -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/mt32mem_test32" "$HERE/tests/mt32mem_test.c" "$HERE/src/gs_mt32mem.c"
     "$OUT/mt32mem_test32"
     $CC -m32 -O1 -g -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/la_test32" "$HERE/tests/la_test.c" "$HERE/src/gs_la.c" "$HERE/src/gs_tables.c" -lm
     "$OUT/la_test32"
-    $CC -m32 -O1 -g -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/mt32_test32" "$HERE/tests/mt32_test.c" "$HERE/src/gs_mt32.c" "$HERE/src/gs_la.c" "$HERE/src/gs_mt32mem.c" "$HERE/src/gs_tables.c" -lm
+    $CC -m32 -O1 -g -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/mt32_test32" "$HERE/tests/mt32_test.c" "$HERE/src/gs_mt32.c" "$HERE/src/gs_mt32rom.c" "$HERE/src/gs_la.c" "$HERE/src/gs_mt32mem.c" "$HERE/src/gs_tables.c" -lm
     "$OUT/mt32_test32"
+    $CC -m32 -O1 -g -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/mt32rom_test32" "$HERE/tests/mt32rom_test.c" "$HERE/src/gs_mt32rom.c" "$HERE/src/gs_mt32.c" "$HERE/src/gs_la.c" "$HERE/src/gs_mt32mem.c" "$HERE/src/gs_tables.c" -lm
+    "$OUT/mt32rom_test32"
 fi
 # the engine as one translation unit (as the runtime builds it)
 $CC -O1 -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/one_unit" "$HERE/tests/one_unit.c" && "$OUT/one_unit" && echo "PASS: one translation unit"
