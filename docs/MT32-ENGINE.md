@@ -45,6 +45,31 @@ refused. `gs_mt32_timbre_decode` gives a timbre's 246 bytes by name.
 The ranges are the manual's; step 4 checks them against a real unit's
 ROM on the test machine that holds one.
 
+## Step 4, part one: groups A and B
+
+`src/gs_mt32rom.c` takes a joined control ROM (the caller reads the user's
+file and knows it by SHA-1, `gs_rom.c`) and finds its 128 timbres by
+looking, not by version: either 64 whole timbres of 246 bytes at 0x8080 and
+64 at 0xC080 (MT-32 1.04-1.07, blue ribbon), or a table at 0x8000 of 128
+16-bit little-endian offsets from 0x8000, each to 14 common bytes followed
+only by the switched-on partials (MT-32 2.04-2.07, CM-32L, CM-32LN). Every
+timbre is checked before the ROM is taken. `gs_mt32_use_rom` hands them to
+the parts: a part on a group A or B patch plays that timbre, and takes it
+again after a program change or a reset. A ROM timbre with a sampled
+partial switched on is not played yet (`gs_mt32_playable` says so), so the
+caller keeps it on the General MIDI map until part two.
+
+- `tests/mt32rom_test.c` (27 checks) writes ROM-shaped images of its own in
+  both layouts, and bad ones.
+- `tools/mt32rom_check.c` runs on the machine that holds the ROMs and
+  prints only counts. 17 November 2026, on daletop: all 11 control ROMs
+  read (1.04, 1.05, 1.06, 1.07, blue ribbon and 2.04 whole or packed as
+  above, 2.06, 2.07, CM-32L 1.00 and 1.02, CM-32LN 1.00); in each, 44 of
+  the 128 timbres play on synthesiser partials alone and 84 wait for the
+  PCM ROM; none is silent.
+
+Part two: the rhythm timbres and setup, and the PCM ROM's sampled waves.
+
 ## Step 2 in detail
 
 `src/gs_la.c` plays one partial from the 58 settings step 1 decodes. It is

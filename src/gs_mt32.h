@@ -5,7 +5,7 @@
  * ring modulated, or both), 32 partials in all, shared out by the parts'
  * partial reserve.
  *
- * No ROM is used. So only a timbre the song itself sent plays here (a write
+ * Without the user's ROM (gs_mt32_use_rom, step 4) only a timbre the song itself sent plays here (a write
  * to a part's timbre temporary area, or a patch that names timbre memory),
  * and of it only the partials of the synthesiser kind (gs_la.h); a sampled
  * (PCM) partial is silent until step 4 reads the user's ROMs. A part on a
@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include "gs_mt32mem.h"
 #include "gs_la.h"
+#include "gs_mt32rom.h"
 
 #define GS_MT32_NOTES    32
 #define GS_MT32_PARTIALS 32
@@ -36,7 +37,8 @@ struct gs_mt32_note {
 };
 
 struct gs_mt32_part {
-	uint8_t known;                  /* its timbre came from the song, not a ROM */
+	uint8_t known;                  /* its timbre is one we hold: the song's, or the user's ROM's (step 4) */
+	uint8_t from_rom;               /* it is the ROM's: played only while it has no sampled partial on */
 	uint8_t volume, expression, mod, hold;
 	int16_t bend;                   /* -8192 to 8191 */
 };
@@ -48,9 +50,15 @@ struct gs_mt32 {
 	struct gs_mt32_note note[GS_MT32_NOTES];
 	uint32_t dropped;               /* notes not started: no partial could be had */
 	uint32_t stolen;                /* notes cut short to make room */
+	const struct gs_mt32rom *rom;   /* the user's ROM timbres, or NULL (gs_mt32_use_rom) */
 };
 
 void gs_mt32_init(struct gs_mt32 *s, uint32_t rate);
+
+/* takes groups A and B from the user's ROM (gs_mt32rom_read), or none with
+ * NULL; the caller keeps rom alive. Parts on a group A or B patch take
+ * their timbre from it at once and at each patch change. */
+void gs_mt32_use_rom(struct gs_mt32 *s, const struct gs_mt32rom *rom);
 
 /* a channel message: status with its channel, and its one or two data bytes */
 void gs_mt32_midi(struct gs_mt32 *s, uint8_t status, uint8_t d1, uint8_t d2);

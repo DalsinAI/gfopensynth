@@ -46,6 +46,7 @@ static void gsm3_power_on(struct gs_mt32 *s)
 	int i;
 	for (i = 0; i <= GS_MT32_PARTS; i++) {
 		s->part[i].known = 0;
+		s->part[i].from_rom = 0;
 		gsm3_controllers(&s->part[i]);
 	}
 	for (i = 0; i < GS_MT32_NOTES; i++)
@@ -62,16 +63,36 @@ void gs_mt32_init(struct gs_mt32 *s, uint32_t rate)
 	gsm3_power_on(s);
 }
 
-/* a part's patch names its timbre: one in timbre memory is copied to the
- * part and is known; one in a ROM is not */
+/* a part's patch names its timbre: one in timbre memory, or in the user's
+ * ROM (groups A and B, step 4), is copied to the part and is known; any
+ * other is not */
 static void gsm3_load_timbre(struct gs_mt32 *s, int part)
 {
-	const uint8_t *pt = s->mem.patch_temp[part];
+	const uint8_t *pt = s->mem.patch_temp[part], *rt;
+	s->part[part].from_rom = 0;
 	if (pt[GS_MT32_P_GROUP] == GS_MT32_GROUP_MEMORY) {
 		memcpy(s->mem.timbre_temp[part], s->mem.timbre[pt[GS_MT32_P_NUMBER] & 63], GS_MT32_TIMBRE_SIZE);
 		s->part[part].known = 1;
+	} else if ((rt = gs_mt32rom_timbre(s->rom, pt[GS_MT32_P_GROUP], pt[GS_MT32_P_NUMBER] & 63)) != 0) {
+		memcpy(s->mem.timbre_temp[part], rt, GS_MT32_TIMBRE_SIZE);
+		s->part[part].known = 1;
+		s->part[part].from_rom = 1;
 	} else
 		s->part[part].known = 0;
+}
+
+/* the parts' timbres again, from their patches (after a reset or a new ROM) */
+static void gsm3_load_all(struct gs_mt32 *s)
+{
+	int i;
+	for (i = 0; i < GS_MT32_PARTS; i++)
+		gsm3_load_timbre(s, i);
+}
+
+void gs_mt32_use_rom(struct gs_mt32 *s, const struct gs_mt32rom *rom)
+{
+	s->rom = rom && rom->layout ? rom : 0;
+	gsm3_load_all(s);
 }
 
 int gs_mt32_sysex(struct gs_mt32 *s, const uint8_t *data, uint32_t len)
@@ -82,6 +103,7 @@ int gs_mt32_sysex(struct gs_mt32 *s, const uint8_t *data, uint32_t len)
 		return r;
 	if (s->mem.resets != s->resets_seen) {
 		gsm3_power_on(s);
+		gsm3_load_all(s);
 		return r;
 	}
 	if (len && data[0] == 0xF0) { data++; len--; }
@@ -92,8 +114,10 @@ int gs_mt32_sysex(struct gs_mt32 *s, const uint8_t *data, uint32_t len)
 	n = len - 8;                                    /* data bytes: less the header, address and checksum */
 	for (i = 0; i < GS_MT32_PARTS; i++) {
 		uint32_t t0 = GSM3_TIMBRE_TEMP + i * GS_MT32_TIMBRE_SIZE, p0 = GSM3_PATCH_TEMP + i * GS_MT32_PATCH_TEMP;
-		if (addr < t0 + GS_MT32_TIMBRE_SIZE && addr + n > t0)
+		if (addr < t0 + GS_MT32_TIMBRE_SIZE && addr + n > t0) {
 			s->part[i].known = 1;                   /* the song wrote this part's timbre itself */
+			s->part[i].from_rom = 0;
+		}
 		if (addr < p0 + 2 && addr + n > p0)
 			gsm3_load_timbre(s, (int)i);            /* it changed which timbre the part's patch names */
 	}
@@ -115,6 +139,8 @@ static int gsm3_timbre(const struct gs_mt32 *s, int part, int key, struct gs_mt3
 		if (!s->part[part].known)
 			return 0;
 		gs_mt32_timbre_decode(s->mem.timbre_temp[part], t);
+		if (s->part[part].from_rom && gsm3_sounding(t) != (t->mute & 15))
+			return 0;                               /* a sampled partial is on: not until the PCM ROM is read */
 	}
 	return gsm3_sounding(t) != 0;
 }
