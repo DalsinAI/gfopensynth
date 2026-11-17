@@ -31,6 +31,9 @@ Status: the engine and the library (this draft). The AkikoPlus MIDI port
   every sample made from arithmetic, so music plays where no other SoundFont
   is installed. The library uses `DEVS:SoundFonts/default.sf2` when there is
   one (any General MIDI SoundFont, copied there by the user), else Basic.
+- `midi/`: the MIDI collection, 700 public domain pieces made from the Mutopia Project's public domain
+  sources, each with its source in `midi/SOURCES.tsv` (`midi/README.md`). The part installs it as `Media:midi`
+  where a volume named Media is mounted.
 - `demo/gfopensynth-demo.mid`: a tune of our own (`tools/make_demo_mid.py`).
   `tools/smf2wav.c` plays a MIDI file into a WAV on a PC with the same engine.
 - `sh package.sh OUT DEST VERSION`: the release files (the GFOpenUp part
