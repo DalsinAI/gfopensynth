@@ -324,7 +324,7 @@ int main(int argc, char **argv)
 		gen(GEN_decayVolEnv, tc(fam[i].decay));
 		gen(GEN_sustainVolEnv, fam[i].sustain);
 		gen(GEN_releaseVolEnv, tc(fam[i].release));
-		gen(GEN_initialAttenuation, fam[i].atten + 150);
+		gen(GEN_initialAttenuation, fam[i].atten);
 		gen(GEN_sampleModes, 1);
 		gen_range(GEN_keyRange, 0, 71); gen(GEN_overridingRootKey, 48); gen(GEN_sampleID, lo[fam[i].wave]);
 		gen_range(GEN_keyRange, 72, 127); gen(GEN_overridingRootKey, 84); gen(GEN_sampleID, hi[fam[i].wave]);
