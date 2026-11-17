@@ -1,0 +1,14 @@
+# amicradle-ci manifest for gfopensynth.
+# MIT, Copyright (c) 2026 AmiCradle Team.
+schema = 1
+repo = "gfopensynth"
+
+[stove]
+name = "os32-gcc16"
+version = "16.2.0-open6"
+
+[test]
+host = ["sh tests/run_host_tests.sh"]
+
+[paths]
+skip = ["*.md", "docs/*", "LICENSE"]
