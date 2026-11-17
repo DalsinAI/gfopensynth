@@ -31,6 +31,8 @@ Status: the engine and the library (this draft). The AkikoPlus MIDI port
   every sample made from arithmetic, so music plays where no other SoundFont
   is installed. The library uses `DEVS:SoundFonts/default.sf2` when there is
   one (any General MIDI SoundFont, copied there by the user), else Basic.
+- `src/gs_mt32mem.c`: the MT-32's memory and its system exclusive messages, step 1 of our own MT-32 engine
+  (`docs/MT32-ENGINE.md`); not yet used by the library.
 - `midi/`: the MIDI collection, 700 public domain pieces made from the Mutopia Project's public domain
   sources, each with its source in `midi/SOURCES.tsv` (`midi/README.md`). The part installs it as `Media:midi`
   where a volume named Media is mounted.
