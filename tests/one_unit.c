@@ -3,6 +3,7 @@
  * does acopl3.c): every file-local name is prefixed, so none collide.
  * MIT, Copyright (c) 2026 AmiCradle Team. */
 #include "../src/gs_midi.c"
+#include "../src/gs_mt32mem.c"
 #include "../src/gs_rom.c"
 #include "../src/gs_sf2.c"
 #include "../src/gs_synth.c"
