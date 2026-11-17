@@ -16,18 +16,11 @@ concurrency:
 jobs:
   part:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    # A private repository: the Team's amigachromebuild runner (label guest-m68k), in the container GitHub's own
-    # runners match, so hosted minutes aren't spent (PARTS-ON-MERGE.md section 1, "Cost").
-    runs-on: [self-hosted, guest-m68k]
-    container: ubuntu:24.04
-    env:
-      DEBIAN_FRONTEND: noninteractive
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: write
     steps:
-      - name: What GitHub's runners already have
-        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends sudo git ca-certificates build-essential python3 curl xz-utils gh >/dev/null
       - uses: actions/checkout@v4
       - uses: DalsinAI/gfopenup/.github/actions/stove@team3/parts-on-merge-20261117
       - name: Build

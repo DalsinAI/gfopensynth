@@ -17,18 +17,11 @@ on:
         required: false
 jobs:
   release:
-    # A private repository: the Team's amigachromebuild runner (label guest-m68k), in the container GitHub's own
-    # runners match, so hosted minutes aren't spent (PARTS-ON-MERGE.md section 1, "Cost").
-    runs-on: [self-hosted, guest-m68k]
-    container: ubuntu:24.04
-    env:
-      DEBIAN_FRONTEND: noninteractive
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - name: What GitHub's runners already have
-        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends sudo git ca-certificates build-essential python3 curl xz-utils gh >/dev/null
       - uses: actions/checkout@v4
         with:
           ref: main
