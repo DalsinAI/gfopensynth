@@ -5,9 +5,9 @@
 
 /* ---- SHA-1 (FIPS 180-4) ---- */
 
-#define ROL(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
+#define GSR_ROL(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
 
-static void sha1_block(uint32_t h[5], const uint8_t *p)
+static void gsr_sha1_block(uint32_t h[5], const uint8_t *p)
 {
 	uint32_t w[80], a, b, c, d, e, t;
 	int i;
@@ -15,15 +15,15 @@ static void sha1_block(uint32_t h[5], const uint8_t *p)
 		w[i] = (uint32_t)p[i * 4] << 24 | (uint32_t)p[i * 4 + 1] << 16 |
 		       (uint32_t)p[i * 4 + 2] << 8 | p[i * 4 + 3];
 	for (; i < 80; i++)
-		w[i] = ROL(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
+		w[i] = GSR_ROL(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
 	a = h[0]; b = h[1]; c = h[2]; d = h[3]; e = h[4];
 	for (i = 0; i < 80; i++) {
 		if (i < 20) t = ((b & c) | (~b & d)) + 0x5A827999u;
 		else if (i < 40) t = (b ^ c ^ d) + 0x6ED9EBA1u;
 		else if (i < 60) t = ((b & c) | (b & d) | (c & d)) + 0x8F1BBCDCu;
 		else t = (b ^ c ^ d) + 0xCA62C1D6u;
-		t += ROL(a, 5) + e + w[i];
-		e = d; d = c; c = ROL(b, 30); b = a; a = t;
+		t += GSR_ROL(a, 5) + e + w[i];
+		e = d; d = c; c = GSR_ROL(b, 30); b = a; a = t;
 	}
 	h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e;
 }
@@ -35,7 +35,7 @@ void gs_sha1(const uint8_t *data, uint32_t len, uint8_t out[20])
 	uint32_t full = len & ~63u, rest = len - full, i, n;
 	uint32_t bitshi = len >> 29, bitslo = len << 3;
 	for (i = 0; i < full; i += 64)
-		sha1_block(h, data + i);
+		gsr_sha1_block(h, data + i);
 	for (i = 0; i < rest; i++)
 		tail[i] = data[full + i];
 	tail[rest] = 0x80;
@@ -46,9 +46,9 @@ void gs_sha1(const uint8_t *data, uint32_t len, uint8_t out[20])
 	tail[n - 6] = (uint8_t)(bitshi >> 8);  tail[n - 5] = (uint8_t)bitshi;
 	tail[n - 4] = (uint8_t)(bitslo >> 24); tail[n - 3] = (uint8_t)(bitslo >> 16);
 	tail[n - 2] = (uint8_t)(bitslo >> 8);  tail[n - 1] = (uint8_t)bitslo;
-	sha1_block(h, tail);
+	gsr_sha1_block(h, tail);
 	if (n == 128)
-		sha1_block(h, tail + 64);
+		gsr_sha1_block(h, tail + 64);
 	for (i = 0; i < 5; i++) {
 		out[i * 4] = (uint8_t)(h[i] >> 24); out[i * 4 + 1] = (uint8_t)(h[i] >> 16);
 		out[i * 4 + 2] = (uint8_t)(h[i] >> 8); out[i * 4 + 3] = (uint8_t)h[i];
@@ -57,7 +57,7 @@ void gs_sha1(const uint8_t *data, uint32_t len, uint8_t out[20])
 
 /* ---- the known ROMs (checksums as published by the Munt project and MAME) ---- */
 
-static const struct gs_rom_info roms[] = {
+static const struct gs_rom_info gsr_roms[] = {
 	{ { 0x73, 0x68, 0x3d, 0x58, 0x5c, 0xd6, 0x94, 0x8c, 0xc1, 0x95, 0x47, 0x94, 0x2c, 0xa0, 0xe1, 0x4a, 0x03, 0x19, 0x45, 0x6d },
 	  GS_ROM_CTRL, GS_PART_FULL, GS_MODEL_CM32L, 1, 65536u, 65536u, "CM-32L control 1.00", "cm32l_ctrl_1_00" },
 	{ { 0xa4, 0x39, 0xfb, 0xb3, 0x90, 0xda, 0x38, 0xca, 0xda, 0x95, 0xa7, 0xcb, 0xb1, 0xd6, 0xca, 0x19, 0x9c, 0xd6, 0x6e, 0xf8 },
@@ -111,16 +111,16 @@ static const struct gs_rom_info roms[] = {
 	{ { 0x3a, 0x1e, 0x19, 0xb0, 0xcd, 0x40, 0x36, 0x62, 0x3f, 0xd1, 0xd1, 0xd1, 0x1f, 0x5f, 0x25, 0x99, 0x55, 0x85, 0x96, 0x2b },
 	  GS_ROM_PCM, GS_PART_LOW, GS_PCM_MT32, 0, 262144u, 524288u, "MT-32 PCM (low half)", "mt32_pcm_l" },
 };
-#define NROMS ((int)(sizeof roms / sizeof roms[0]))
+#define gsr_NROMS ((int)(sizeof gsr_roms / sizeof gsr_roms[0]))
 
 const struct gs_rom_info *gs_rom_by_sha1(const uint8_t sha1[20])
 {
 	int i, j;
-	for (i = 0; i < NROMS; i++) {
-		for (j = 0; j < 20 && roms[i].sha1[j] == sha1[j]; j++)
+	for (i = 0; i < gsr_NROMS; i++) {
+		for (j = 0; j < 20 && gsr_roms[i].sha1[j] == sha1[j]; j++)
 			;
 		if (j == 20)
-			return &roms[i];
+			return &gsr_roms[i];
 	}
 	return 0;
 }
@@ -128,11 +128,11 @@ const struct gs_rom_info *gs_rom_by_sha1(const uint8_t sha1[20])
 const struct gs_rom_info *gs_rom_by_id(const char *id)
 {
 	int i;
-	for (i = 0; i < NROMS; i++) {
-		const char *a = roms[i].id, *b = id;
+	for (i = 0; i < gsr_NROMS; i++) {
+		const char *a = gsr_roms[i].id, *b = id;
 		while (*a && *a == *b) { a++; b++; }
 		if (!*a && !*b)
-			return &roms[i];
+			return &gsr_roms[i];
 	}
 	return 0;
 }
@@ -143,8 +143,8 @@ const struct gs_rom_info *gs_rom_identify(const uint8_t *data, uint32_t len)
 	const struct gs_rom_info *r;
 	int i, ok = 0;
 	/* only sizes a ROM can have are hashed */
-	for (i = 0; i < NROMS; i++)
-		if (roms[i].size == len)
+	for (i = 0; i < gsr_NROMS; i++)
+		if (gsr_roms[i].size == len)
 			ok = 1;
 	if (!ok)
 		return 0;
@@ -154,7 +154,7 @@ const struct gs_rom_info *gs_rom_identify(const uint8_t *data, uint32_t len)
 }
 
 /* id without its part suffix equals whole's id */
-static int same_base(const char *part, const char *whole)
+static int gsr_same_base(const char *part, const char *whole)
 {
 	while (*whole && *part == *whole) {
 		part++;
@@ -168,17 +168,17 @@ const struct gs_rom_info *gs_rom_whole(const struct gs_rom_info *p)
 	int i;
 	if (!p || p->part == GS_PART_FULL)
 		return p;
-	for (i = 0; i < NROMS; i++) {
-		const struct gs_rom_info *w = &roms[i];
+	for (i = 0; i < gsr_NROMS; i++) {
+		const struct gs_rom_info *w = &gsr_roms[i];
 		if (w->part != GS_PART_FULL || w->kind != p->kind || w->model != p->model)
 			continue;
-		if (p->part == GS_PART_CM32L_HIGH || same_base(p->id, w->id))
+		if (p->part == GS_PART_CM32L_HIGH || gsr_same_base(p->id, w->id))
 			return w;
 	}
 	return 0;
 }
 
-static int is_mt32_pcm(const struct gs_rom_info *r)
+static int gsr_is_mt32_pcm(const struct gs_rom_info *r)
 {
 	return r->kind == GS_ROM_PCM && r->part == GS_PART_FULL && r->model == GS_PCM_MT32;
 }
@@ -192,7 +192,7 @@ int gs_rom_join(const struct gs_rom_info *a, const uint8_t *ad,
 	if (!a || !b)
 		return -1;
 	/* put the first part first */
-	if (b->part == GS_PART_EVEN || b->part == GS_PART_LOW || is_mt32_pcm(b)) {
+	if (b->part == GS_PART_EVEN || b->part == GS_PART_LOW || gsr_is_mt32_pcm(b)) {
 		t = a; a = b; b = t;
 		td = ad; ad = bd; bd = td;
 	}
@@ -204,7 +204,7 @@ int gs_rom_join(const struct gs_rom_info *a, const uint8_t *ad,
 		return 0;
 	}
 	if ((a->part == GS_PART_LOW && b->part == GS_PART_HIGH && gs_rom_whole(a) == gs_rom_whole(b)) ||
-	    (is_mt32_pcm(a) && b->part == GS_PART_CM32L_HIGH)) {
+	    (gsr_is_mt32_pcm(a) && b->part == GS_PART_CM32L_HIGH)) {
 		for (i = 0; i < a->size; i++)
 			out[i] = ad[i];
 		for (i = 0; i < b->size; i++)
@@ -227,7 +227,7 @@ int gs_romset_add(struct gs_romset *s, const struct gs_rom_info *info)
 	return 0;
 }
 
-static int find(const struct gs_romset *s, const struct gs_rom_info *want, int part)
+static int gsr_find(const struct gs_romset *s, const struct gs_rom_info *want, int part)
 {
 	int i;
 	for (i = 0; i < s->n; i++)
@@ -237,7 +237,7 @@ static int find(const struct gs_romset *s, const struct gs_rom_info *want, int p
 	return -1;
 }
 
-static int find_exact(const struct gs_romset *s, const struct gs_rom_info *want)
+static int gsr_find_exact(const struct gs_romset *s, const struct gs_rom_info *want)
 {
 	int i;
 	for (i = 0; i < s->n; i++)
@@ -246,16 +246,16 @@ static int find_exact(const struct gs_romset *s, const struct gs_rom_info *want)
 	return -1;
 }
 
-static int pick_model(const struct gs_romset *s, int model, struct gs_rom_pick *p)
+static int gsr_pick_model(const struct gs_romset *s, int model, struct gs_rom_pick *p)
 {
 	int i, best = -1, bestrank = -1, pcmmodel;
 	/* the control ROM: the highest version with a whole file or both parts */
-	for (i = 0; i < NROMS; i++) {
-		const struct gs_rom_info *w = &roms[i];
+	for (i = 0; i < gsr_NROMS; i++) {
+		const struct gs_rom_info *w = &gsr_roms[i];
 		if (w->kind != GS_ROM_CTRL || w->part != GS_PART_FULL || w->model != model ||
 		    w->rank <= bestrank)
 			continue;
-		if (find_exact(s, w) >= 0 || (find(s, w, GS_PART_EVEN) >= 0 && find(s, w, GS_PART_ODD) >= 0)) {
+		if (gsr_find_exact(s, w) >= 0 || (gsr_find(s, w, GS_PART_EVEN) >= 0 && gsr_find(s, w, GS_PART_ODD) >= 0)) {
 			best = i;
 			bestrank = w->rank;
 		}
@@ -263,34 +263,34 @@ static int pick_model(const struct gs_romset *s, int model, struct gs_rom_pick *
 	if (best < 0)
 		return -1;
 	p->model = model;
-	p->ctrl_whole = &roms[best];
-	p->ctrl[0] = find_exact(s, &roms[best]);
+	p->ctrl_whole = &gsr_roms[best];
+	p->ctrl[0] = gsr_find_exact(s, &gsr_roms[best]);
 	p->ctrl[1] = -1;
 	if (p->ctrl[0] < 0) {
-		p->ctrl[0] = find(s, &roms[best], GS_PART_EVEN);
-		p->ctrl[1] = find(s, &roms[best], GS_PART_ODD);
+		p->ctrl[0] = gsr_find(s, &gsr_roms[best], GS_PART_EVEN);
+		p->ctrl[1] = gsr_find(s, &gsr_roms[best], GS_PART_ODD);
 	}
 	/* the PCM ROM */
 	pcmmodel = (model == GS_MODEL_CM32L || model == GS_MODEL_CM32LN) ? GS_PCM_CM32L : GS_PCM_MT32;
 	p->pcm[0] = p->pcm[1] = -1;
 	p->pcm_whole = 0;
-	for (i = 0; i < NROMS; i++)
-		if (roms[i].kind == GS_ROM_PCM && roms[i].part == GS_PART_FULL && roms[i].model == pcmmodel)
-			p->pcm_whole = &roms[i];
+	for (i = 0; i < gsr_NROMS; i++)
+		if (gsr_roms[i].kind == GS_ROM_PCM && gsr_roms[i].part == GS_PART_FULL && gsr_roms[i].model == pcmmodel)
+			p->pcm_whole = &gsr_roms[i];
 	if (!p->pcm_whole)
 		return -1;
-	p->pcm[0] = find_exact(s, p->pcm_whole);
+	p->pcm[0] = gsr_find_exact(s, p->pcm_whole);
 	if (p->pcm[0] >= 0)
 		return 0;
 	if (pcmmodel == GS_PCM_MT32) {
-		p->pcm[0] = find(s, p->pcm_whole, GS_PART_LOW);
-		p->pcm[1] = find(s, p->pcm_whole, GS_PART_HIGH);
+		p->pcm[0] = gsr_find(s, p->pcm_whole, GS_PART_LOW);
+		p->pcm[1] = gsr_find(s, p->pcm_whole, GS_PART_HIGH);
 	} else {
 		/* a whole MT-32 PCM and the CM-32L's high half */
 		for (i = 0; i < s->n; i++)
-			if (is_mt32_pcm(s->info[i]))
+			if (gsr_is_mt32_pcm(s->info[i]))
 				p->pcm[0] = i;
-		p->pcm[1] = find(s, p->pcm_whole, GS_PART_CM32L_HIGH);
+		p->pcm[1] = gsr_find(s, p->pcm_whole, GS_PART_CM32L_HIGH);
 	}
 	if (p->pcm[0] < 0 || p->pcm[1] < 0)
 		return -1;
@@ -302,9 +302,9 @@ int gs_romset_pick(const struct gs_romset *s, int want, struct gs_rom_pick *pick
 	static const int order[] = { GS_MODEL_MT32_OLD, GS_MODEL_MT32_NEW, GS_MODEL_CM32L, GS_MODEL_CM32LN };
 	int i;
 	if (want)
-		return pick_model(s, want, pick);
+		return gsr_pick_model(s, want, pick);
 	for (i = 0; i < 4; i++)
-		if (pick_model(s, order[i], pick) == 0)
+		if (gsr_pick_model(s, order[i], pick) == 0)
 			return 0;
 	return -1;
 }

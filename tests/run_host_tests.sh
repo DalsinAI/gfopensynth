@@ -22,3 +22,5 @@ if $CC -m32 -o "$OUT/san32" "$OUT/san.c" 2>/dev/null; then
     $CC -m32 -O1 -g -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/synth_test32" "$HERE/tests/synth_test.c" $SRC -lm
     "$OUT/synth_test32"
 fi
+# the engine as one translation unit (as the runtime builds it)
+$CC -O1 -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/one_unit" "$HERE/tests/one_unit.c" && "$OUT/one_unit" && echo "PASS: one translation unit"

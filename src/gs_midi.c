@@ -26,7 +26,7 @@ void gs_midi_in_init(struct gs_midi_in *p)
 	p->sxdrop = 0;
 }
 
-static int sysex_end(struct gs_midi_in *p)
+static int gsm_sysex_end(struct gs_midi_in *p)
 {
 	p->in_sysex = 0;
 	if (p->sxdrop) {
@@ -48,7 +48,7 @@ int gs_midi_in_byte(struct gs_midi_in *p, uint8_t b, struct gs_msg *ev)
 		return GS_IN_NONE;
 	if (p->in_sysex) {
 		if (b == 0xF7)
-			return sysex_end(p);
+			return gsm_sysex_end(p);
 		if (b < 0x80) {
 			if (p->sxlen < GS_SYSEX_MAX)
 				p->sysex[p->sxlen++] = b;
@@ -102,13 +102,13 @@ int gs_midi_in_byte(struct gs_midi_in *p, uint8_t b, struct gs_msg *ev)
 
 /* ---- SMF ---- */
 
-static uint32_t be32(const uint8_t *p)
+static uint32_t gsm_be32(const uint8_t *p)
 {
 	return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | p[3];
 }
 
 /* a variable-length number; 0 past the end */
-static uint32_t vlq(const uint8_t **pp, const uint8_t *end)
+static uint32_t gsm_vlq(const uint8_t **pp, const uint8_t *end)
 {
 	uint32_t v = 0;
 	int i;
@@ -123,13 +123,13 @@ static uint32_t vlq(const uint8_t **pp, const uint8_t *end)
 	return v;
 }
 
-static void track_delta(struct gs_smf_track *t)
+static void gsm_track_delta(struct gs_smf_track *t)
 {
 	if (t->p >= t->end) {
 		t->done = 1;
 		return;
 	}
-	t->next += vlq(&t->p, t->end);
+	t->next += gsm_vlq(&t->p, t->end);
 	if (t->p >= t->end)
 		t->done = 1;
 }
@@ -140,7 +140,7 @@ int gs_smf_open(struct gs_smf *s, const uint8_t *data, uint32_t len)
 	uint32_t hlen, n = 0, want;
 	if (len < 14 || data[0] != 'M' || data[1] != 'T' || data[2] != 'h' || data[3] != 'd')
 		return -1;
-	hlen = be32(data + 4);
+	hlen = gsm_be32(data + 4);
 	if (hlen < 6 || hlen > len - 8)
 		return -1;
 	s->data = data;
@@ -152,7 +152,7 @@ int gs_smf_open(struct gs_smf *s, const uint8_t *data, uint32_t len)
 		return -1;
 	p = data + 8 + hlen;
 	while (p + 8 <= end && n < GS_SMF_TRACKS && n < want) {
-		uint32_t clen = be32(p + 4);
+		uint32_t clen = gsm_be32(p + 4);
 		const uint8_t *body = p + 8;
 		uint32_t room = (uint32_t)(end - body);
 		if (clen > room)
@@ -181,7 +181,7 @@ void gs_smf_rewind(struct gs_smf *s)
 		t->next = 0;
 		t->running = 0;
 		t->done = 0;
-		track_delta(t);
+		gsm_track_delta(t);
 	}
 }
 
@@ -209,12 +209,12 @@ void gs_smf_next(struct gs_smf *s, struct gs_smf_event *ev)
 			t->p++;
 			if (t->p >= end) { t->done = 1; continue; }
 			type = *t->p++;
-			mlen = vlq(&t->p, end);
+			mlen = gsm_vlq(&t->p, end);
 			body = t->p;
 			if (mlen > (uint32_t)(end - body)) { t->done = 1; continue; }
 			t->p = body + mlen;
 			if (type == 0x2F) { t->done = 1; continue; }
-			track_delta(t);
+			gsm_track_delta(t);
 			if (type == 0x51 && mlen == 3) {
 				ev->type = GS_EV_TEMPO;
 				ev->tempo = (uint32_t)body[0] << 16 | (uint32_t)body[1] << 8 | body[2];
@@ -227,12 +227,12 @@ void gs_smf_next(struct gs_smf *s, struct gs_smf_event *ev)
 			uint32_t slen;
 			const uint8_t *body;
 			t->p++;
-			slen = vlq(&t->p, end);
+			slen = gsm_vlq(&t->p, end);
 			body = t->p;
 			if (slen > (uint32_t)(end - body)) { t->done = 1; continue; }
 			t->p = body + slen;
 			t->running = 0;
-			track_delta(t);
+			gsm_track_delta(t);
 			if (b == 0xF7)
 				continue;                        /* escaped bytes: not played */
 			ev->type = GS_EV_SYSEX;
@@ -261,7 +261,7 @@ void gs_smf_next(struct gs_smf *s, struct gs_smf_event *ev)
 			ev->msg.d2 = n > 1 ? (t->p[1] & 0x7F) : 0;
 			ev->msg.len = (uint8_t)(1 + n);
 			t->p += n;
-			track_delta(t);
+			gsm_track_delta(t);
 			return;
 		}
 	}

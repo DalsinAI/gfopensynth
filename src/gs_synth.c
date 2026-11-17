@@ -4,15 +4,15 @@
 #include "gs_synth.h"
 #include "gs_tables.h"
 
-#define ENV_DELAY   1
-#define ENV_ATTACK  2
-#define ENV_HOLD    3
-#define ENV_DECAY   4
-#define ENV_SUSTAIN 5
-#define ENV_RELEASE 6
+#define GSS_ENV_DELAY   1
+#define GSS_ENV_ATTACK  2
+#define GSS_ENV_HOLD    3
+#define GSS_ENV_DECAY   4
+#define GSS_ENV_SUSTAIN 5
+#define GSS_ENV_RELEASE 6
 
-#define CB_SILENT 960           /* 96 dB: a voice this far down is done */
-#define CB_MAX 1440
+#define GSS_CB_SILENT 960           /* 96 dB: a voice this far down is done */
+#define GSS_CB_MAX 1440
 
 /* ---- small sums ---- */
 
@@ -28,7 +28,7 @@ uint32_t gs_exp2_cents(int32_t c)
 }
 
 /* timecents to blocks of GS_BLOCK frames (at least 1 for a stage that has one) */
-static uint32_t tc_blocks(int32_t tc, uint32_t rate)
+static uint32_t gss_tc_blocks(int32_t tc, uint32_t rate)
 {
 	uint64_t frames;
 	if (tc <= -12000)
@@ -39,14 +39,14 @@ static uint32_t tc_blocks(int32_t tc, uint32_t rate)
 	return (uint32_t)(frames / GS_BLOCK);
 }
 
-static int clampi(int v, int lo, int hi)
+static int gss_clampi(int v, int lo, int hi)
 {
 	return v < lo ? lo : v > hi ? hi : v;
 }
 
 /* MT-32 programs to the nearest GM program (MT-32 owner's manual patch list,
  * GM level 1 sound set). */
-static const uint8_t mt32_gm[128] = {
+static const uint8_t gss_mt32_gm[128] = {
 	0, 1, 0, 4, 5, 4, 5, 3,          /* AcouPiano 1-3, ElecPiano 1-4, Honkytonk */
 	16, 17, 18, 16, 19, 19, 20, 21,  /* Elec Org 1-4, Pipe Org 1-3, Accordion */
 	6, 6, 6, 7, 7, 7, 8, 8,          /* Harpsi 1-3, Clavi 1-3, Celesta 1-2 */
@@ -67,12 +67,12 @@ static const uint8_t mt32_gm[128] = {
 
 uint8_t gs_mt32_to_gm(uint8_t p)
 {
-	return mt32_gm[p & 127];
+	return gss_mt32_gm[p & 127];
 }
 
 /* ---- channels ---- */
 
-static int find_preset(struct gs_synth *s, int c)
+static int gss_find_preset(struct gs_synth *s, int c)
 {
 	struct gs_channel *ch = &s->ch[c];
 	int p, prog = ch->program;
@@ -91,7 +91,7 @@ static int find_preset(struct gs_synth *s, int c)
 	return p;
 }
 
-static void reset_controllers(struct gs_channel *ch)
+static void gss_reset_controllers(struct gs_channel *ch)
 {
 	ch->expression = 127;
 	ch->sustain = 0;
@@ -112,8 +112,8 @@ void gs_synth_reset(struct gs_synth *s)
 		ch->volume = 100;
 		ch->pan = 64;
 		ch->bend_range = 200;
-		reset_controllers(ch);
-		ch->preset = find_preset(s, c);
+		gss_reset_controllers(ch);
+		ch->preset = gss_find_preset(s, c);
 	}
 }
 
@@ -121,7 +121,7 @@ void gs_synth_init(struct gs_synth *s, const struct gs_sf2 *sf, uint32_t rate, i
 {
 	s->sf = sf;
 	s->rate = rate ? rate : 22050;
-	s->nvoices = clampi(voices, 1, GS_VOICES_MAX);
+	s->nvoices = gss_clampi(voices, 1, GS_VOICES_MAX);
 	s->mode = mode;
 	s->master = 256;
 	s->clock = 0;
@@ -136,14 +136,14 @@ void gs_synth_set_master(struct gs_synth *s, uint32_t q8)
 }
 
 /* MT-32 mode listens on channels 2-10 only, as the MT-32 does from power on */
-static int listening(const struct gs_synth *s, int c)
+static int gss_listening(const struct gs_synth *s, int c)
 {
 	return s->mode != GS_MODE_MT32_GM || (c >= 1 && c <= 9);
 }
 
 /* ---- voices ---- */
 
-static void voice_pitch(struct gs_synth *s, struct gs_voice *v)
+static void gss_voice_pitch(struct gs_synth *s, struct gs_voice *v)
 {
 	const struct gs_channel *ch = &s->ch[v->chan];
 	int32_t bend = ((int32_t)ch->bend - 8192) * (int32_t)ch->bend_range / 8192;
@@ -152,17 +152,17 @@ static void voice_pitch(struct gs_synth *s, struct gs_voice *v)
 		v->inc = 64u << 16;
 }
 
-static void voice_release(struct gs_voice *v)
+static void gss_voice_release(struct gs_voice *v)
 {
 	if (v->released)
 		return;
 	v->released = 1;
 	v->held = 0;
-	v->stage = ENV_RELEASE;
+	v->stage = GSS_ENV_RELEASE;
 	if (v->att_len && v->att_pos < v->att_len) {
 		/* let go during the attack: release from the level reached */
 		uint32_t lin = (v->att_pos << 15) / v->att_len, cb = 0;
-		while (cb < CB_MAX && gs_cb_gain_q15[cb] > lin)
+		while (cb < GSS_CB_MAX && gs_cb_gain_q15[cb] > lin)
 			cb += 8;
 		v->env = (int32_t)cb << 8;
 		v->att_len = 0;
@@ -170,7 +170,7 @@ static void voice_release(struct gs_voice *v)
 	v->env_step = v->release_step;
 }
 
-static struct gs_voice *voice_alloc(struct gs_synth *s)
+static struct gs_voice *gss_voice_alloc(struct gs_synth *s)
 {
 	struct gs_voice *best = 0;
 	int i;
@@ -180,7 +180,7 @@ static struct gs_voice *voice_alloc(struct gs_synth *s)
 	/* the quietest released voice, else the oldest */
 	for (i = 0; i < s->nvoices; i++) {
 		struct gs_voice *v = &s->v[i];
-		if (v->stage == ENV_RELEASE && (!best || v->env > best->env))
+		if (v->stage == GSS_ENV_RELEASE && (!best || v->env > best->env))
 			best = v;
 	}
 	if (best)
@@ -191,7 +191,7 @@ static struct gs_voice *voice_alloc(struct gs_synth *s)
 	return best;
 }
 
-static void note_on(struct gs_synth *s, int c, int key, int vel)
+static void gss_note_on(struct gs_synth *s, int c, int key, int vel)
 {
 	struct gs_channel *ch = &s->ch[c];
 	struct gs_zone z[8];
@@ -214,7 +214,7 @@ static void note_on(struct gs_synth *s, int c, int key, int vel)
 					o->stage = 0;
 			}
 		}
-		v = voice_alloc(s);
+		v = gss_voice_alloc(s);
 		v->chan = (uint8_t)c;
 		v->key = (uint8_t)key;
 		v->vel = (uint8_t)vel;
@@ -232,35 +232,35 @@ static void note_on(struct gs_synth *s, int c, int key, int vel)
 		v->ratio = (uint32_t)(((uint64_t)z[i].rate << 16) / s->rate);
 		v->cents = (int32_t)(k - z[i].root) * g[GEN_scaleTuning] + g[GEN_coarseTune] * 100 +
 		           g[GEN_fineTune] + z[i].correction;
-		voice_pitch(s, v);
+		gss_voice_pitch(s, v);
 		/* EMU's hardware, and the SoundFonts made on it, use 0.4 of the attenuation */
-		v->atten = (int16_t)(clampi(g[GEN_initialAttenuation], 0, CB_MAX) * 2 / 5 + gs_curve_cb[vv & 127]);
-		v->pan = (int16_t)clampi(g[GEN_pan], -500, 500);
+		v->atten = (int16_t)(gss_clampi(g[GEN_initialAttenuation], 0, GSS_CB_MAX) * 2 / 5 + gs_curve_cb[vv & 127]);
+		v->pan = (int16_t)gss_clampi(g[GEN_pan], -500, 500);
 		/* the volume envelope */
 		v->env = 0;
-		v->env_blocks = tc_blocks(g[GEN_delayVolEnv], s->rate);
-		v->att_len = tc_blocks(g[GEN_attackVolEnv], s->rate);
+		v->env_blocks = gss_tc_blocks(g[GEN_delayVolEnv], s->rate);
+		v->att_len = gss_tc_blocks(g[GEN_attackVolEnv], s->rate);
 		v->att_pos = 0;
-		v->sustain = (int32_t)clampi(g[GEN_sustainVolEnv], 0, CB_SILENT) << 8;
+		v->sustain = (int32_t)gss_clampi(g[GEN_sustainVolEnv], 0, GSS_CB_SILENT) << 8;
 		tc = g[GEN_decayVolEnv] + (60 - key) * g[GEN_keynumToVolEnvDecay];
 		{
-			uint32_t b = tc_blocks(tc, s->rate);
-			v->decay_step = (int32_t)(((uint32_t)CB_SILENT << 8) / (b ? b : 1));
+			uint32_t b = gss_tc_blocks(tc, s->rate);
+			v->decay_step = (int32_t)(((uint32_t)GSS_CB_SILENT << 8) / (b ? b : 1));
 		}
 		{
-			uint32_t b = tc_blocks(g[GEN_releaseVolEnv], s->rate);
-			v->release_step = (int32_t)(((uint32_t)CB_SILENT << 8) / (b ? b : 1));
+			uint32_t b = gss_tc_blocks(g[GEN_releaseVolEnv], s->rate);
+			v->release_step = (int32_t)(((uint32_t)GSS_CB_SILENT << 8) / (b ? b : 1));
 		}
-		v->stage = v->env_blocks ? ENV_DELAY : ENV_ATTACK;
+		v->stage = v->env_blocks ? GSS_ENV_DELAY : GSS_ENV_ATTACK;
 		/* hold is kept for after the attack */
 		tc = g[GEN_holdVolEnv] + (60 - key) * g[GEN_keynumToVolEnvHold];
-		v->env_step = (int32_t)tc_blocks(tc, s->rate);   /* the hold, in blocks, until used */
+		v->env_step = (int32_t)gss_tc_blocks(tc, s->rate);   /* the hold, in blocks, until used */
 		v->age = ++s->clock;
 		v->gl = v->gr = 0;
 	}
 }
 
-static void note_off(struct gs_synth *s, int c, int key)
+static void gss_note_off(struct gs_synth *s, int c, int key)
 {
 	int i;
 	for (i = 0; i < s->nvoices; i++) {
@@ -269,12 +269,12 @@ static void note_off(struct gs_synth *s, int c, int key)
 			if (s->ch[c].sustain)
 				v->held = 1;
 			else
-				voice_release(v);
+				gss_voice_release(v);
 		}
 	}
 }
 
-static void all_off(struct gs_synth *s, int c, int now)
+static void gss_all_off(struct gs_synth *s, int c, int now)
 {
 	int i;
 	for (i = 0; i < s->nvoices; i++) {
@@ -283,12 +283,12 @@ static void all_off(struct gs_synth *s, int c, int now)
 			if (now)
 				v->stage = 0;
 			else
-				voice_release(v);
+				gss_voice_release(v);
 		}
 	}
 }
 
-static void control(struct gs_synth *s, int c, int cc, int val)
+static void gss_control(struct gs_synth *s, int c, int cc, int val)
 {
 	struct gs_channel *ch = &s->ch[c];
 	int i;
@@ -306,40 +306,40 @@ static void control(struct gs_synth *s, int c, int cc, int val)
 		if (!ch->sustain)
 			for (i = 0; i < s->nvoices; i++)
 				if (s->v[i].stage && s->v[i].chan == c && s->v[i].held)
-					voice_release(&s->v[i]);
+					gss_voice_release(&s->v[i]);
 		break;
 	case 100: ch->rpn_lsb = (uint8_t)val; break;
 	case 101: ch->rpn_msb = (uint8_t)val; break;
 	case 98: case 99: ch->rpn_msb = ch->rpn_lsb = 127; break;   /* NRPN: not ours */
-	case 120: all_off(s, c, 1); break;
-	case 121: reset_controllers(ch); break;
-	case 123: case 124: case 125: case 126: case 127: all_off(s, c, 0); break;
+	case 120: gss_all_off(s, c, 1); break;
+	case 121: gss_reset_controllers(ch); break;
+	case 123: case 124: case 125: case 126: case 127: gss_all_off(s, c, 0); break;
 	}
 }
 
 void gs_synth_msg(struct gs_synth *s, const struct gs_msg *m)
 {
 	int c = m->status & 15, i;
-	if (m->status < 0x80 || m->status >= 0xF0 || !listening(s, c))
+	if (m->status < 0x80 || m->status >= 0xF0 || !gss_listening(s, c))
 		return;
 	switch (m->status & 0xF0) {
 	case 0x90:
 		if (m->d2)
-			note_on(s, c, m->d1 & 127, m->d2 & 127);
+			gss_note_on(s, c, m->d1 & 127, m->d2 & 127);
 		else
-			note_off(s, c, m->d1 & 127);     /* velocity 0 is a note off */
+			gss_note_off(s, c, m->d1 & 127);     /* velocity 0 is a note off */
 		break;
-	case 0x80: note_off(s, c, m->d1 & 127); break;
-	case 0xB0: control(s, c, m->d1 & 127, m->d2 & 127); break;
+	case 0x80: gss_note_off(s, c, m->d1 & 127); break;
+	case 0xB0: gss_control(s, c, m->d1 & 127, m->d2 & 127); break;
 	case 0xC0:
 		s->ch[c].program = m->d1 & 127;
-		s->ch[c].preset = find_preset(s, c);
+		s->ch[c].preset = gss_find_preset(s, c);
 		break;
 	case 0xE0:
 		s->ch[c].bend = (uint16_t)((m->d1 & 127) | (m->d2 & 127) << 7);
 		for (i = 0; i < s->nvoices; i++)
 			if (s->v[i].stage && s->v[i].chan == c)
-				voice_pitch(s, &s->v[i]);
+				gss_voice_pitch(s, &s->v[i]);
 		break;
 	}
 }
@@ -397,62 +397,62 @@ int gs_synth_active(const struct gs_synth *s)
 }
 
 /* one block's envelope step and gains; 0 when the voice ended */
-static int voice_block(struct gs_synth *s, struct gs_voice *v)
+static int gss_voice_block(struct gs_synth *s, struct gs_voice *v)
 {
 	const struct gs_channel *ch = &s->ch[v->chan];
 	int32_t cb;
 	uint32_t g, lin = 32768;
 	int p, idx;
 	switch (v->stage) {
-	case ENV_DELAY:
+	case GSS_ENV_DELAY:
 		if (v->env_blocks)
 			v->env_blocks--;
 		if (!v->env_blocks)
-			v->stage = ENV_ATTACK;
+			v->stage = GSS_ENV_ATTACK;
 		lin = 0;
 		break;
-	case ENV_ATTACK:
+	case GSS_ENV_ATTACK:
 		if (v->att_pos < v->att_len) {
 			lin = (v->att_pos << 15) / v->att_len;
 			v->att_pos++;
 			break;
 		}
 		v->att_len = 0;
-		v->stage = ENV_HOLD;
+		v->stage = GSS_ENV_HOLD;
 		v->env_blocks = (uint32_t)v->env_step;
 		/* fall through */ __attribute__((fallthrough));
-	case ENV_HOLD:
+	case GSS_ENV_HOLD:
 		if (v->env_blocks) {
 			v->env_blocks--;
 			break;
 		}
-		v->stage = ENV_DECAY;
+		v->stage = GSS_ENV_DECAY;
 		__attribute__((fallthrough));
-	case ENV_DECAY:
+	case GSS_ENV_DECAY:
 		v->env += v->decay_step;
 		if (v->env >= v->sustain) {
 			v->env = v->sustain;
-			v->stage = ENV_SUSTAIN;
+			v->stage = GSS_ENV_SUSTAIN;
 		}
 		break;
-	case ENV_SUSTAIN:
+	case GSS_ENV_SUSTAIN:
 		break;
-	case ENV_RELEASE:
+	case GSS_ENV_RELEASE:
 		v->env += v->env_step;
-		if (v->env >= (CB_SILENT << 8))
+		if (v->env >= (GSS_CB_SILENT << 8))
 			return 0;
 		break;
 	}
-	if (v->stage == ENV_SUSTAIN && v->sustain >= (CB_SILENT << 8))
+	if (v->stage == GSS_ENV_SUSTAIN && v->sustain >= (GSS_CB_SILENT << 8))
 		return 0;
 	cb = v->atten + (v->env >> 8) + gs_curve_cb[ch->volume] + gs_curve_cb[ch->expression];
-	if (cb >= CB_MAX)
+	if (cb >= GSS_CB_MAX)
 		g = 0;
 	else
 		g = gs_cb_gain_q15[cb < 0 ? 0 : cb];
 	g = (g * lin) >> 15;
 	g = (g * s->master) >> 8;
-	p = clampi(v->pan + ((int)ch->pan - 64) * 1000 / 128, -500, 500);
+	p = gss_clampi(v->pan + ((int)ch->pan - 64) * 1000 / 128, -500, 500);
 	idx = (p + 500) * 128 / 1000;
 	v->gl = (int16_t)((g * gs_pan_q15[128 - idx]) >> 15);
 	v->gr = (int16_t)((g * gs_pan_q15[idx]) >> 15);
@@ -460,7 +460,7 @@ static int voice_block(struct gs_synth *s, struct gs_voice *v)
 }
 
 /* mixes n frames of v into acc (interleaved stereo); 0 when it ended */
-static int voice_mix(struct gs_voice *v, int32_t *acc, uint32_t n)
+static int gss_voice_mix(struct gs_voice *v, int32_t *acc, uint32_t n)
 {
 	const int16_t *d = v->data;
 	uint32_t pos = v->pos, frac = v->frac, inc = v->inc;
@@ -502,7 +502,7 @@ void gs_synth_render(struct gs_synth *s, int16_t *out, uint32_t frames)
 		int k;
 		if (!s->block_left) {
 			for (k = 0; k < s->nvoices; k++)
-				if (s->v[k].stage && !voice_block(s, &s->v[k]))
+				if (s->v[k].stage && !gss_voice_block(s, &s->v[k]))
 					s->v[k].stage = 0;
 			s->block_left = GS_BLOCK;
 		}
@@ -511,7 +511,7 @@ void gs_synth_render(struct gs_synth *s, int16_t *out, uint32_t frames)
 			acc[i] = 0;
 		for (k = 0; k < s->nvoices; k++) {
 			struct gs_voice *v = &s->v[k];
-			if (v->stage && v->stage != ENV_DELAY && !voice_mix(v, acc, n))
+			if (v->stage && v->stage != GSS_ENV_DELAY && !gss_voice_mix(v, acc, n))
 				v->stage = 0;
 		}
 		for (i = 0; i < n * 2; i++) {
@@ -526,7 +526,7 @@ void gs_synth_render(struct gs_synth *s, int16_t *out, uint32_t frames)
 
 /* ---- the SMF player ---- */
 
-static void seq_tempo(struct gs_seq *q, uint32_t tempo)
+static void gss_seq_tempo(struct gs_seq *q, uint32_t tempo)
 {
 	int16_t div = q->smf.division;
 	if (div > 0)
@@ -540,7 +540,7 @@ static void seq_tempo(struct gs_seq *q, uint32_t tempo)
 	}
 }
 
-static uint64_t ev_time(const struct gs_seq *q)
+static uint64_t gss_ev_time(const struct gs_seq *q)
 {
 	return q->base + (uint64_t)(q->ev.tick - q->base_tick) * q->spt;
 }
@@ -550,7 +550,7 @@ void gs_seq_rewind(struct gs_seq *q)
 	gs_smf_rewind(&q->smf);
 	q->now = q->base = 0;
 	q->base_tick = 0;
-	seq_tempo(q, 500000);
+	gss_seq_tempo(q, 500000);
 	q->ended = 0;
 	gs_smf_next(&q->smf, &q->ev);
 }
@@ -566,7 +566,7 @@ int gs_seq_open(struct gs_seq *q, const uint8_t *data, uint32_t len, uint32_t ra
 	return 0;
 }
 
-static void to_synth(void *ctx, const struct gs_smf_event *ev)
+static void gss_to_synth(void *ctx, const struct gs_smf_event *ev)
 {
 	struct gs_synth *s = ctx;
 	if (ev->type == GS_EV_MSG)
@@ -576,13 +576,13 @@ static void to_synth(void *ctx, const struct gs_smf_event *ev)
 }
 
 /* hands every event due by now to cb; 1 at the song's end */
-static int seq_dispatch(struct gs_seq *q, gs_seq_sink cb, void *ctx)
+static int gss_seq_dispatch(struct gs_seq *q, gs_seq_sink cb, void *ctx)
 {
-	while (q->ev.type != GS_EV_END && ev_time(q) <= q->now) {
+	while (q->ev.type != GS_EV_END && gss_ev_time(q) <= q->now) {
 		if (q->ev.type == GS_EV_TEMPO) {
-			q->base = ev_time(q);
+			q->base = gss_ev_time(q);
 			q->base_tick = q->ev.tick;
-			seq_tempo(q, q->ev.tempo);
+			gss_seq_tempo(q, q->ev.tempo);
 		} else if (cb)
 			cb(ctx, &q->ev);
 		gs_smf_next(&q->smf, &q->ev);
@@ -596,7 +596,7 @@ uint32_t gs_seq_events(struct gs_seq *q, uint32_t frames, gs_seq_sink cb, void *
 	if (q->ended)
 		return 0;
 	q->now += (uint64_t)frames << 16;
-	if (!seq_dispatch(q, cb, ctx))
+	if (!gss_seq_dispatch(q, cb, ctx))
 		return 1;
 	if (!q->loop) {
 		q->ended = 1;
@@ -612,11 +612,11 @@ void gs_seq_render(struct gs_seq *q, struct gs_synth *s, int16_t *out, uint32_t 
 {
 	while (frames) {
 		uint32_t n = frames;
-		if (!q->ended && seq_dispatch(q, to_synth, s)) {
+		if (!q->ended && gss_seq_dispatch(q, gss_to_synth, s)) {
 			if (q->loop && q->now) {      /* an empty song never loops */
 				int c;
 				for (c = 0; c < 16; c++)
-					all_off(s, c, 0);
+					gss_all_off(s, c, 0);
 				gs_seq_rewind(q);
 				q->loops++;
 				continue;
@@ -624,7 +624,7 @@ void gs_seq_render(struct gs_seq *q, struct gs_synth *s, int16_t *out, uint32_t 
 			q->ended = 1;
 		}
 		if (!q->ended) {
-			uint64_t due = ev_time(q);
+			uint64_t due = gss_ev_time(q);
 			uint64_t gap = due > q->now ? ((due - q->now + 0xFFFF) >> 16) : 1;
 			if (gap < n)
 				n = (uint32_t)gap;
@@ -642,8 +642,8 @@ uint64_t gs_seq_length(struct gs_seq *q)
 	int loop = q->loop;
 	gs_seq_rewind(q);
 	while (q->ev.type != GS_EV_END) {
-		q->now = ev_time(q);
-		seq_dispatch(q, 0, 0);
+		q->now = gss_ev_time(q);
+		gss_seq_dispatch(q, 0, 0);
 	}
 	t = q->now >> 16;
 	q->loop = loop;
