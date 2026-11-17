@@ -57,10 +57,22 @@ check it is current). Envelopes and gains step every 32 frames
 (`GS_BLOCK`); samples are linearly interpolated. 64-bit sums only at note
 on, bend and tempo changes.
 
+## The library
+
+`include/sfd/gfopensynth_lib.sfd` lists the calls. `GSOpenSynthA` takes
+`GSA_Output` (auto: the port if its device opens, else the 68k to AHI;
+`ENV:GFOpenSynth/Output`), `GSA_Engine` (GM or MT-32), and for the 68k
+`GSA_SoundFont`, `GSA_Rate`, `GSA_Voices`, `GSA_Unit`. On the port the
+engine and the volume go as SysEx (`F0 7D 'G' 'S' 01 mode F7`, and the
+universal master volume), so the host's synth is set the same way a real
+box is; a MIDI file is timed in the library's player process with
+timer.device and sent as bytes. On the 68k the player process keeps two
+linked AHI buffers of 100 ms going. `GSRenderS16` is for programs that mix
+their own (allegro4.library).
+
 ## Next
 
-1. gfopensynth.library: open a synth (port, else 68k to AHI, else the
-   caller's buffer), short messages, SysEx, SMF playback, volume, reset.
+1. (done in this draft) gfopensynth.library.
 2. AkikoPlus MIDI port: guest device and the host side, in
    gfosautoconfigboards (`cards/akikoplus`) and the runtime, with this
    engine built for the host.

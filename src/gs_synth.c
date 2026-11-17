@@ -359,6 +359,18 @@ void gs_synth_sysex(struct gs_synth *s, const uint8_t *d, uint32_t len)
 		gs_synth_reset(s);
 		return;
 	}
+	/* master volume: 7F dev 04 01 lsb msb */
+	if (len >= 6 && d[0] == 0x7F && d[2] == 0x04 && d[3] == 0x01) {
+		uint32_t v = (uint32_t)(d[4] & 127) | (uint32_t)(d[5] & 127) << 7;
+		gs_synth_set_master(s, (v * 256 + 8191) / 16383);
+		return;
+	}
+	/* ours (non-commercial id 7D): 7D 'G' 'S' 01 engine: the engine to play as */
+	if (len >= 5 && d[0] == 0x7D && d[1] == 'G' && d[2] == 'S' && d[3] == 0x01 && d[4] <= GS_MODE_MT32_GM) {
+		s->mode = d[4];
+		gs_synth_reset(s);
+		return;
+	}
 	s->sysex_ignored++;
 }
 
@@ -554,29 +566,53 @@ int gs_seq_open(struct gs_seq *q, const uint8_t *data, uint32_t len, uint32_t ra
 	return 0;
 }
 
-/* plays every event due by now; 1 at the song's end */
-static int seq_dispatch(struct gs_seq *q, struct gs_synth *s)
+static void to_synth(void *ctx, const struct gs_smf_event *ev)
+{
+	struct gs_synth *s = ctx;
+	if (ev->type == GS_EV_MSG)
+		gs_synth_msg(s, &ev->msg);
+	else if (ev->type == GS_EV_SYSEX)
+		gs_synth_sysex(s, ev->data, ev->len);
+}
+
+/* hands every event due by now to cb; 1 at the song's end */
+static int seq_dispatch(struct gs_seq *q, gs_seq_sink cb, void *ctx)
 {
 	while (q->ev.type != GS_EV_END && ev_time(q) <= q->now) {
-		switch (q->ev.type) {
-		case GS_EV_MSG: if (s) gs_synth_msg(s, &q->ev.msg); break;
-		case GS_EV_SYSEX: if (s) gs_synth_sysex(s, q->ev.data, q->ev.len); break;
-		case GS_EV_TEMPO:
+		if (q->ev.type == GS_EV_TEMPO) {
 			q->base = ev_time(q);
 			q->base_tick = q->ev.tick;
 			seq_tempo(q, q->ev.tempo);
-			break;
-		}
+		} else if (cb)
+			cb(ctx, &q->ev);
 		gs_smf_next(&q->smf, &q->ev);
 	}
 	return q->ev.type == GS_EV_END;
+}
+
+uint32_t gs_seq_events(struct gs_seq *q, uint32_t frames, gs_seq_sink cb, void *ctx)
+{
+	uint32_t loops;
+	if (q->ended)
+		return 0;
+	q->now += (uint64_t)frames << 16;
+	if (!seq_dispatch(q, cb, ctx))
+		return 1;
+	if (!q->loop) {
+		q->ended = 1;
+		return 0;
+	}
+	loops = q->loops;
+	gs_seq_rewind(q);
+	q->loops = loops + 1;
+	return 2;
 }
 
 void gs_seq_render(struct gs_seq *q, struct gs_synth *s, int16_t *out, uint32_t frames)
 {
 	while (frames) {
 		uint32_t n = frames;
-		if (!q->ended && seq_dispatch(q, s)) {
+		if (!q->ended && seq_dispatch(q, to_synth, s)) {
 			if (q->loop && q->now) {      /* an empty song never loops */
 				int c;
 				for (c = 0; c < 16; c++)
@@ -607,7 +643,7 @@ uint64_t gs_seq_length(struct gs_seq *q)
 	gs_seq_rewind(q);
 	while (q->ev.type != GS_EV_END) {
 		q->now = ev_time(q);
-		seq_dispatch(q, 0);
+		seq_dispatch(q, 0, 0);
 	}
 	t = q->now >> 16;
 	q->loop = loop;

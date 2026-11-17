@@ -6,7 +6,9 @@
  * Modes: GS_MODE_GM plays every channel as General MIDI (channel 10 drums).
  * GS_MODE_MT32_GM plays an MT-32 song through the SoundFont: parts on MIDI
  * channels 2-9 with the MT-32's programs mapped to the nearest GM ones, and
- * rhythm on 10, as an MT-32 is set when it powers on. (The MT-32 itself, from
+ * rhythm on 10, as an MT-32 is set when it powers on. The SysEx
+ * F0 7D 'G' 'S' 01 <mode> F7 (7D: the non-commercial id) switches the mode
+ * and resets, as mt32-pi switches between its engines. (The MT-32 itself, from
  * its ROMs, is the LA engine, a later stage.)
  * MIT, Copyright (c) 2026 AmiCradle Team. */
 #ifndef GS_SYNTH_H
@@ -103,6 +105,12 @@ struct gs_seq {
 /* 0, or -1 for a file that is not an SMF */
 int gs_seq_open(struct gs_seq *q, const uint8_t *data, uint32_t len, uint32_t rate, int loop);
 void gs_seq_rewind(struct gs_seq *q);
+/* For a player that sends the song elsewhere (a MIDI port): moves the song
+ * on by frames (at q's rate: 1000 makes them milliseconds) and hands each
+ * event due to cb (tempo changes are the player's own). 1 while it plays, 2 when it
+ * has just started again (the player sends all notes off), 0 once it ended. */
+typedef void (*gs_seq_sink)(void *ctx, const struct gs_smf_event *ev);
+uint32_t gs_seq_events(struct gs_seq *q, uint32_t frames, gs_seq_sink cb, void *ctx);
 /* plays frames of the song into out through s; at the end without loop
  * the rest is the synth's tail (releases), and q->ended is set */
 void gs_seq_render(struct gs_seq *q, struct gs_synth *s, int16_t *out, uint32_t frames);

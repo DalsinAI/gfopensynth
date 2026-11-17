@@ -7,6 +7,14 @@ repo = "gfopensynth"
 name = "os32-gcc16"
 version = "16.2.0-open6"
 
+[build]
+entry = "build-amiga.sh"
+outputs = [
+  "lib/gfopensynth.library",
+  "lib/libgfopensynth.a",
+  "c/PlaySynth",
+]
+
 [test]
 host = ["sh tests/run_host_tests.sh"]
 

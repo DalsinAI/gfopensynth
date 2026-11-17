@@ -494,6 +494,59 @@ static void test_mt32_mode(void)
 	CHECK(gs_synth_active(&syn) == 1);
 	msg(&syn, 0x9A, 69, 100);                                 /* channel 11: off */
 	CHECK(gs_synth_active(&syn) == 1);
+	/* our engine switch: F0 7D 'G' 'S' 01 mode F7 */
+	{
+		static const unsigned char gm[] = { 0xF0, 0x7D, 'G', 'S', 0x01, 0x00, 0xF7 };
+		static const unsigned char bad[] = { 0xF0, 0x7D, 'G', 'S', 0x01, 0x09, 0xF7 };
+		gs_synth_sysex(&syn, gm, sizeof gm);
+		CHECK(syn.mode == GS_MODE_GM && gs_synth_active(&syn) == 0);
+		msg(&syn, 0x90, 69, 100);
+		CHECK(gs_synth_active(&syn) == 1);
+		gs_synth_sysex(&syn, bad, sizeof bad);
+		CHECK(syn.mode == GS_MODE_GM && syn.sysex_ignored == 1);
+	}
+	/* universal master volume */
+	{
+		static const unsigned char half[] = { 0xF0, 0x7F, 0x7F, 0x04, 0x01, 0x00, 0x40, 0xF7 };
+		static const unsigned char full[] = { 0xF0, 0x7F, 0x7F, 0x04, 0x01, 0x7F, 0x7F, 0xF7 };
+		gs_synth_sysex(&syn, half, sizeof half);
+		CHECK(syn.master == 128);
+		gs_synth_sysex(&syn, full, sizeof full);
+		CHECK(syn.master == 256);
+	}
+}
+
+/* gs_seq_events: the song's events at millisecond steps, as a port player
+ * sends them */
+static int sunk[8], nsunk;
+static unsigned long sunk_at[8], ms_now;
+static void sink(void *ctx, const struct gs_smf_event *ev)
+{
+	(void)ctx;
+	if (nsunk < 8) { sunk[nsunk] = ev->type; sunk_at[nsunk] = ms_now; nsunk++; }
+}
+
+static void test_seq_events(void)
+{
+	struct gs_seq q;
+	unsigned r = 1;
+	make_smf();
+	CHECK(gs_seq_open(&q, smf, (unsigned)smflen, 1000, 0) == 0);
+	nsunk = 0;
+	for (ms_now = 0; ms_now < 4000 && r; ms_now += 10)
+		r = gs_seq_events(&q, ms_now ? 10 : 0, sink, 0);
+	CHECK(nsunk == 5);
+	CHECK(sunk[0] == GS_EV_MSG && sunk_at[0] == 0);
+	CHECK(sunk[1] == GS_EV_MSG && sunk_at[1] == 500);       /* off at 0.5 s */
+	CHECK(sunk[2] == GS_EV_SYSEX && sunk_at[2] == 1500);    /* 192 ticks: 0.5 s + 1 s at 60 bpm */
+	CHECK(sunk[3] == GS_EV_MSG && sunk_at[3] == 1500);
+	CHECK(sunk[4] == GS_EV_MSG && sunk_at[4] == 2500);
+	CHECK(r == 0 && q.ended);
+	CHECK(gs_seq_open(&q, smf, (unsigned)smflen, 1000, 1) == 0);
+	nsunk = 0;
+	for (ms_now = 0, r = 1; ms_now < 2600 && r != 2; ms_now += 10)
+		r = gs_seq_events(&q, ms_now ? 10 : 0, sink, 0);
+	CHECK(r == 2 && q.loops == 1 && ms_now == 2510);
 }
 
 static void test_seq(void)
@@ -531,6 +584,7 @@ int main(void)
 	test_synth();
 	test_mt32_mode();
 	test_seq();
+	test_seq_events();
 	printf("%s: %d checks, %d failed (long is %d bits)\n", fails ? "FAIL" : "PASS", checks, fails,
 	       (int)sizeof(long) * 8);
 	return fails != 0;

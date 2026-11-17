@@ -12,8 +12,18 @@ arithmetic only, so one source runs:
 On the Amiga, `gfopensynth.library` and a CAMD driver send MIDI to the port,
 so programs play as if a real synth were plugged in.
 
-Status: the engine (this draft). The library, the CAMD driver and the port's
-host side follow; see [docs/gfopensynth.md](docs/gfopensynth.md).
+Status: the engine and the library (this draft). The AkikoPlus MIDI port
+(guest device and host side) and the CAMD driver follow; see
+[docs/gfopensynth.md](docs/gfopensynth.md).
+
+- `library/`: gfopensynth.library: `GSOpenSynthA` picks the port
+  (`akikomidi.device`, or `ENV:GFOpenSynth/Port`), else the 68k engine to
+  AHI, else the caller's buffer (`GSRenderS16`, for programs that mix their
+  own). Short messages, SysEx, MIDI files (`GSPlayFileA`, looped or not),
+  volume, reset. `C:PlaySynth FILE/A,MT32/S,LOOP/S,OUTPUT/K,SOUNDFONT/K,...`.
+- `sh build-amiga.sh` (STOVE= or PREFIX= and NDK_INC=): `lib/gfopensynth.library`
+  (no floating point, nothing from a C library), `lib/libgfopensynth.a`
+  (`<gfopensynth.h>`, `-lgfopensynth`), `c/PlaySynth`.
 
 - `src/gs_midi.c`: the port's byte stream parser (running status, SysEx,
   real-time bytes) and a Standard MIDI File reader and player
