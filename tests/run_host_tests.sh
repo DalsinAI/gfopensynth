@@ -25,9 +25,13 @@ fi
 # the MT-32's memory and its DT1 messages (step 1 of our own LA engine, docs/MT32-ENGINE.md), 64-bit then 32-bit
 $CC -O1 -g $SAN -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/mt32mem_test" "$HERE/tests/mt32mem_test.c" "$HERE/src/gs_mt32mem.c"
 "$OUT/mt32mem_test"
+$CC -O1 -g $SAN -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/la_test" "$HERE/tests/la_test.c" "$HERE/src/gs_la.c" "$HERE/src/gs_tables.c" -lm
+"$OUT/la_test"
 if $CC -m32 -o "$OUT/san32" "$OUT/san.c" 2>/dev/null; then
     $CC -m32 -O1 -g -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/mt32mem_test32" "$HERE/tests/mt32mem_test.c" "$HERE/src/gs_mt32mem.c"
     "$OUT/mt32mem_test32"
+    $CC -m32 -O1 -g -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/la_test32" "$HERE/tests/la_test.c" "$HERE/src/gs_la.c" "$HERE/src/gs_tables.c" -lm
+    "$OUT/la_test32"
 fi
 # the engine as one translation unit (as the runtime builds it)
 $CC -O1 -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/one_unit" "$HERE/tests/one_unit.c" && "$OUT/one_unit" && echo "PASS: one translation unit"

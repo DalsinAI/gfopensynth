@@ -44,3 +44,27 @@ maker, model or unit is left alone, and one with a bad checksum is
 refused. `gs_mt32_timbre_decode` gives a timbre's 246 bytes by name.
 The ranges are the manual's; step 4 checks them against a real unit's
 ROM on the test machine that holds one.
+
+## Step 2 in detail
+
+`src/gs_la.c` plays one partial from the 58 settings step 1 decodes. It is
+not yet joined to notes or to the library: step 3 does that.
+
+- Waves: a sawtooth, and a pulse made of two sawtooths one late by the pulse
+  width; both have their edges smoothed so high notes do not alias.
+- Filter: a resonant low pass, cutoff from the setting, its key follow, its
+  envelope and the envelope's velocity sense.
+- Amplifier: level, velocity sense, the two bias points, and a five-stage
+  envelope with sustain or without.
+- Pitch: coarse, fine, key follow, the pitch envelope, a triangle LFO with
+  the modulation wheel, and the bender.
+- `tests/la_test.c` (30 checks) measures pitch by counting cycles, the
+  pulse's duty, the filter's and amplifier's effect on power and peak, the
+  envelope's timing and the note's end, and runs every setting at its lowest
+  and highest under the sanitizers and as a 32-bit build.
+
+Every curve here (times, levels, cutoff, depths) is our own fit to the
+manual's description, not a measurement. Step 6 tunes them by ear against a
+real unit. Not read yet: the envelopes' time key follow and velocity follow,
+the filter's bias, the filter envelope's depth key follow and the pulse
+width's velocity sense.
