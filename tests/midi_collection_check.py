@@ -10,6 +10,9 @@ import sys
 from pathlib import Path
 
 
+OURS = "AmiCradle Team"
+
+
 def check(root: Path) -> list[str]:
     bad = []
     lines = (root / "SOURCES.tsv").read_text(encoding="utf-8").splitlines()
@@ -26,7 +29,10 @@ def check(root: Path) -> list[str]:
         if r["file"] in rows:
             bad.append(f"SOURCES.tsv line {n}: {r['file']} is there twice")
         rows[r["file"]] = r
-        if r["licence"] != "Public Domain":
+        ours = r["composer"] == OURS            # a tune of our own, written by a script in tools/
+        if ours and (r["licence"] != "MIT" or not r["mutopia source"].startswith("tools/") or r["mutopia page"]):
+            bad.append(f"{r['file']}: a tune of our own is MIT, names its script in tools/ and has no Mutopia page")
+        if not ours and r["licence"] != "Public Domain":
             bad.append(f"{r['file']}: licence {r['licence']!r}; only Public Domain pieces ship")
         if not r["title"] or not r["mutopia source"]:
             bad.append(f"{r['file']}: no title or no source")
@@ -63,6 +69,10 @@ def self_test() -> None:
         (root / "A" / "y.mid").unlink()
         (root / "SOURCES.tsv").write_text(head + "A/x.mid\tT\tC\t1\tCreative Commons Attribution 3.0\tu\tftp/a.ly\tm\n")
         assert any("only Public Domain" in b for b in check(root))
+        (root / "SOURCES.tsv").write_text(head + "A/x.mid\tT\tAmiCradle Team\t\tMIT\t\ttools/make.py\t\n")
+        assert not check(root), check(root)             # a tune of our own
+        (root / "SOURCES.tsv").write_text(head + "A/x.mid\tT\tAmiCradle Team\t\tMIT\tu\tftp/a.ly\t\n")
+        assert any("a tune of our own" in b for b in check(root))
         (root / "SOURCES.tsv").write_text(head + "A/x.mid\tT\tC\t1\tPublic Domain\tu\tftp/a.ly\tm\nA/z.mid\tT\tC\t1\tPublic Domain\tu\tftp/a.ly\tm\n")
         assert any("no such file" in b for b in check(root))
         long = "n" * 27 + ".mid"
