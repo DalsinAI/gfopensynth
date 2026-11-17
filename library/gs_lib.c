@@ -157,6 +157,7 @@ static struct GSSynth *L_GSOpenSynthA(REG(a0, const struct TagItem *tags), REG(a
 		return NULL;
 	}
 	InitSemaphore(&s->lock);
+	gs_midi_in_init(&s->in);
 	s->engine = tag_data(tags, GSA_Engine, GSE_GM) == GSE_MT32 ? GSE_MT32 : GSE_GM;
 	s->volume = tag_data(tags, GSA_Volume, GS_VOLUME_FULL);
 	if (s->volume > GS_VOLUME_FULL) s->volume = GS_VOLUME_FULL;
@@ -275,20 +276,25 @@ static VOID L_GSSysEx(REG(a0, struct GSSynth *s), REG(a1, const UBYTE *data), RE
 
 static VOID L_GSStopFile(REG(a0, struct GSSynth *s), REG(a6, struct GSLibBase *base));
 
-static BOOL L_GSPlayFileA(REG(a0, struct GSSynth *s), REG(a1, CONST_STRPTR name),
-                          REG(a2, const struct TagItem *tags), REG(a6, struct GSLibBase *base))
+/* every note let go, on the 68k engine (the caller holds the lock) */
+static void notes_off(struct GSSynth *s)
 {
-	UBYTE *data;
-	ULONG len = 0;
-	LONG err = 0;
-	struct gs_seq probe;
-	if (!s || !name)
-		return FALSE;
-	L_GSStopFile(s, base);
-	if (!(data = load_file(name, &len, &err))) {
-		s->err = err;
-		return FALSE;
+	int c;
+	for (c = 0; c < 16; c++) {
+		struct gs_msg m;
+		m.status = (UBYTE)(0xB0 | c); m.d1 = 123; m.d2 = 0; m.len = 3;
+		gs_synth_msg(&s->syn, &m);
+		m.d1 = 64;
+		gs_synth_msg(&s->syn, &m);
 	}
+}
+
+/* plays a MIDI file's bytes (an AllocVec the synth now owns) */
+static BOOL play_data(struct GSSynth *s, UBYTE *data, ULONG len, const struct TagItem *tags,
+                      struct GSLibBase *base)
+{
+	struct gs_seq probe;
+	L_GSStopFile(s, base);
 	if (gs_seq_open(&probe, data, len, 1000, 0)) {
 		FreeVec(data);
 		s->err = ERROR_OBJECT_WRONG_TYPE;
@@ -301,6 +307,7 @@ static BOOL L_GSPlayFileA(REG(a0, struct GSSynth *s), REG(a1, CONST_STRPTR name)
 	/* the port player counts milliseconds; the 68k engine frames */
 	gs_seq_open(&s->seq, data, len, s->output == GSOUT_PORT ? 1000 : s->rate,
 	            tag_data(tags, GSA_Loop, FALSE) != 0);
+	s->paused = FALSE;
 	s->playing = TRUE;
 	s->err = 0;
 	ReleaseSemaphore(&s->lock);
@@ -309,10 +316,25 @@ static BOOL L_GSPlayFileA(REG(a0, struct GSSynth *s), REG(a1, CONST_STRPTR name)
 	return TRUE;
 }
 
+static BOOL L_GSPlayFileA(REG(a0, struct GSSynth *s), REG(a1, CONST_STRPTR name),
+                          REG(a2, const struct TagItem *tags), REG(a6, struct GSLibBase *base))
+{
+	UBYTE *data;
+	ULONG len = 0;
+	LONG err = 0;
+	if (!s || !name)
+		return FALSE;
+	if (!(data = load_file(name, &len, &err))) {
+		L_GSStopFile(s, base);
+		s->err = err;
+		return FALSE;
+	}
+	return play_data(s, data, len, tags, base);
+}
+
 static VOID L_GSStopFile(REG(a0, struct GSSynth *s), REG(a6, struct GSLibBase *base))
 {
 	UBYTE *old;
-	int c;
 	(void)base;
 	if (!s || !s->song)
 		return;
@@ -320,15 +342,9 @@ static VOID L_GSStopFile(REG(a0, struct GSSynth *s), REG(a6, struct GSLibBase *b
 	s->playing = FALSE;
 	old = s->song;
 	s->song = NULL;
-	if (s->output != GSOUT_PORT) {
-		for (c = 0; c < 16; c++) {
-			struct gs_msg m;
-			m.status = (UBYTE)(0xB0 | c); m.d1 = 123; m.d2 = 0; m.len = 3;
-			gs_synth_msg(&s->syn, &m);
-			m.d1 = 64;
-			gs_synth_msg(&s->syn, &m);
-		}
-	}
+	s->paused = FALSE;
+	if (s->output != GSOUT_PORT)
+		notes_off(s);
 	ReleaseSemaphore(&s->lock);
 	if (s->output == GSOUT_PORT)
 		gs_player_send(s, GSC_SONG, NULL, 0);
@@ -368,6 +384,23 @@ static ULONG L_GSGetAttr(REG(a0, struct GSSynth *s), REG(d0, ULONG attr), REG(a6
 	case GSA_Active:  return s->output == GSOUT_PORT ? 0 : (ULONG)gs_synth_active(&s->syn);
 	case GSA_Error:   return (ULONG)s->err;
 	case GSA_Length:  return s->lengthMs;
+	case GSA_Paused:  return s->paused;
+	case GSA_Position:
+	case GSA_Beat: {
+		ULONG v = 0;
+		ObtainSemaphore(&s->lock);
+		if (s->song) {
+			if (attr == GSA_Beat)
+				v = gs_seq_beat(&s->seq);
+			else {
+				v = (ULONG)(s->seq.now >> 16);
+				if (s->output != GSOUT_PORT)
+					v = (ULONG)(((uint64_t)v * 1000u) / s->rate);
+			}
+		}
+		ReleaseSemaphore(&s->lock);
+		return v;
+	}
 	}
 	return 0;
 }
@@ -379,7 +412,7 @@ static ULONG L_GSRenderS16(REG(a0, struct GSSynth *s), REG(a1, WORD *buf), REG(d
 	if (!s || !buf || s->output != GSOUT_CALLER)
 		return 0;
 	ObtainSemaphore(&s->lock);
-	if (s->playing) {
+	if (s->playing && !s->paused) {
 		gs_seq_render(&s->seq, &s->syn, (int16_t *)buf, frames);
 		if (s->seq.ended)
 			s->playing = FALSE;
@@ -389,11 +422,85 @@ static ULONG L_GSRenderS16(REG(a0, struct GSSynth *s), REG(a1, WORD *buf), REG(d
 	return frames;
 }
 
+static BOOL L_GSPlayMemA(REG(a0, struct GSSynth *s), REG(a1, const UBYTE *data), REG(d0, ULONG len),
+                         REG(a2, const struct TagItem *tags), REG(a6, struct GSLibBase *base))
+{
+	UBYTE *copy;
+	if (!s || !data || !len)
+		return FALSE;
+	if (!(copy = AllocVec(len, MEMF_ANY))) {
+		L_GSStopFile(s, base);
+		s->err = ERROR_NO_FREE_STORE;
+		return FALSE;
+	}
+	CopyMem((APTR)data, copy, len);
+	return play_data(s, copy, len, tags, base);
+}
+
+static VOID L_GSPauseFile(REG(a0, struct GSSynth *s), REG(d0, ULONG pause), REG(a6, struct GSLibBase *base))
+{
+	(void)base;
+	if (!s || !s->song || (s->paused != 0) == (pause != 0))
+		return;
+	ObtainSemaphore(&s->lock);
+	s->paused = pause != 0;
+	if (s->paused && s->output != GSOUT_PORT)
+		notes_off(s);
+	ReleaseSemaphore(&s->lock);
+	if (s->output == GSOUT_PORT)
+		gs_player_send(s, GSC_SONG, NULL, 0);
+}
+
+static VOID L_GSSeekFile(REG(a0, struct GSSynth *s), REG(d0, ULONG beat), REG(a6, struct GSLibBase *base))
+{
+	(void)base;
+	if (!s || !s->song)
+		return;
+	if (s->output == GSOUT_PORT) {
+		gs_player_send(s, GSC_SEEK, NULL, beat);
+		return;
+	}
+	ObtainSemaphore(&s->lock);
+	gs_seq_seek_synth(&s->seq, &s->syn, beat);
+	s->playing = TRUE;
+	ReleaseSemaphore(&s->lock);
+}
+
+static VOID L_GSWriteBytes(REG(a0, struct GSSynth *s), REG(a1, const UBYTE *data), REG(d0, ULONG len),
+                           REG(a6, struct GSLibBase *base))
+{
+	(void)base;
+	if (!s || !data || !len)
+		return;
+	if (s->output == GSOUT_PORT) {
+		port_bytes(s, data, len);
+		return;
+	}
+	ObtainSemaphore(&s->lock);
+	gs_synth_port(&s->syn, &s->in, data, len);
+	ReleaseSemaphore(&s->lock);
+}
+
+static ULONG L_GSMemLength(REG(a0, const UBYTE *data), REG(d0, ULONG len), REG(a6, struct GSLibBase *base))
+{
+	struct gs_seq *q;
+	ULONG ms = 0;
+	(void)base;
+	if (!data || !len || !(q = AllocVec(sizeof *q, MEMF_ANY)))
+		return 0;
+	if (!gs_seq_open(q, data, len, 1000, 0))
+		ms = (ULONG)gs_seq_length(q);
+	FreeVec(q);
+	return ms;
+}
+
 static const APTR lib_vectors[] = {
 	(APTR)lib_open, (APTR)lib_close, (APTR)lib_expunge, (APTR)lib_null,
 	(APTR)L_GSOpenSynthA, (APTR)L_GSCloseSynth, (APTR)L_GSShortMsg, (APTR)L_GSSysEx,
 	(APTR)L_GSPlayFileA, (APTR)L_GSStopFile, (APTR)L_GSSetVolume, (APTR)L_GSReset,
 	(APTR)L_GSGetAttr, (APTR)L_GSRenderS16,
+	(APTR)L_GSPlayMemA, (APTR)L_GSPauseFile, (APTR)L_GSSeekFile, (APTR)L_GSWriteBytes,
+	(APTR)L_GSMemLength,
 	(APTR)-1
 };
 

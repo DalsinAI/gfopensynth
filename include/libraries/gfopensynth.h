@@ -30,7 +30,7 @@ struct GSSynth;
 #define GSA_SoundFont (GSA_Dummy + 5)  /* (STRPTR) the SoundFont on the 68k (default ENV:GFOpenSynth/SoundFont, else DEVS:SoundFonts/default.sf2) */
 #define GSA_Unit      (GSA_Dummy + 6)  /* (ULONG) ahi.device unit for GSOUT_AHI (default 0) */
 #define GSA_Volume    (GSA_Dummy + 7)  /* (ULONG) also GSGetAttr: 0 to GS_VOLUME_FULL (default full) */
-#define GSA_Loop      (GSA_Dummy + 8)  /* (BOOL) GSPlayFileA: play it again at its end (default FALSE) */
+#define GSA_Loop      (GSA_Dummy + 8)  /* (BOOL) GSPlayFileA, GSPlayMemA: play it again at its end (default FALSE) */
 
 /* GSGetAttr's */
 #define GSA_Playing   (GSA_Dummy + 16) /* TRUE while a file plays */
@@ -38,6 +38,9 @@ struct GSSynth;
 #define GSA_Active    (GSA_Dummy + 18) /* voices sounding on the 68k (0 on the port) */
 #define GSA_Error     (GSA_Dummy + 19) /* 0, or why the last call failed (an AmigaDOS error) */
 #define GSA_Length    (GSA_Dummy + 20) /* the file's length in milliseconds */
+#define GSA_Position  (GSA_Dummy + 21) /* milliseconds of the file played (this time round, when looped) */
+#define GSA_Beat      (GSA_Dummy + 22) /* the file's beat (quarter notes from its start) */
+#define GSA_Paused    (GSA_Dummy + 23) /* TRUE while GSPauseFile holds the file */
 
 /* GSA_Output */
 #define GSOUT_AUTO   0                 /* the port, else the 68k to AHI */

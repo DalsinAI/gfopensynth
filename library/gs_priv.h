@@ -14,7 +14,7 @@
  * ENV:GFOpenSynth/Port (the port's own PR names the device). */
 #define GS_PORT_DEVICE "akikomidi.device"
 
-enum { GSC_START = 1, GSC_WRITE, GSC_SONG, GSC_QUIT };
+enum { GSC_START = 1, GSC_WRITE, GSC_SONG, GSC_SEEK, GSC_QUIT };
 
 struct GSCmd {
 	struct Message msg;
@@ -37,11 +37,13 @@ struct GSSynth {
 	ULONG sflen;
 	struct gs_sf2 sf;
 	struct gs_synth syn;
+	struct gs_midi_in in;           /* GSWriteBytes' parser */
 	/* the file playing */
 	UBYTE *song;
 	ULONG songlen;
 	struct gs_seq seq;
 	volatile BOOL playing;
+	volatile BOOL paused;
 	ULONG lengthMs;
 	/* the player process (AHI and the port) */
 	struct Process *proc;

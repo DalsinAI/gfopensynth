@@ -650,3 +650,52 @@ uint64_t gs_seq_length(struct gs_seq *q)
 	gs_seq_rewind(q);
 	return t;
 }
+
+uint32_t gs_seq_tick(const struct gs_seq *q)
+{
+	uint64_t t;
+	if (q->now <= q->base || !q->spt)
+		return q->base_tick;
+	t = q->base_tick + (q->now - q->base) / q->spt;
+	if (q->ev.type != GS_EV_END && t > q->ev.tick)
+		t = q->ev.tick;
+	return (uint32_t)t;
+}
+
+uint32_t gs_seq_beat(const struct gs_seq *q)
+{
+	if (q->smf.division > 0)
+		return gs_seq_tick(q) / (uint32_t)q->smf.division;
+	return (uint32_t)((q->now >> 16) / q->rate);
+}
+
+void gs_seq_seek_beat(struct gs_seq *q, uint32_t beat, gs_seq_sink cb, void *ctx)
+{
+	uint32_t loops = q->loops, target;
+	gs_seq_rewind(q);
+	q->loops = loops;
+	if (q->smf.division > 0)
+		target = beat * (uint32_t)q->smf.division;
+	else
+		target = (uint32_t)((((uint64_t)beat * q->rate) << 16) / (q->spt ? q->spt : 1));
+	while (q->ev.type != GS_EV_END && q->ev.tick < target) {
+		if (q->ev.type == GS_EV_TEMPO) {
+			q->base = gss_ev_time(q);
+			q->base_tick = q->ev.tick;
+			gss_seq_tempo(q, q->ev.tempo);
+		} else if (cb && !(q->ev.type == GS_EV_MSG && (q->ev.msg.status & 0xE0) == 0x80))
+			cb(ctx, &q->ev);
+		gs_smf_next(&q->smf, &q->ev);
+	}
+	if (q->ev.type == GS_EV_END)
+		target = q->ev.tick < target ? q->ev.tick : target;
+	q->now = q->base + (uint64_t)(target - q->base_tick) * q->spt;
+}
+
+void gs_seq_seek_synth(struct gs_seq *q, struct gs_synth *s, uint32_t beat)
+{
+	int c;
+	for (c = 0; c < 16; c++)
+		gss_all_off(s, c, 0);
+	gs_seq_seek_beat(q, beat, gss_to_synth, s);
+}

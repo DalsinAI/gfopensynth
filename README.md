@@ -19,7 +19,8 @@ Status: the engine and the library (this draft). The AkikoPlus MIDI port
 - `library/`: gfopensynth.library: `GSOpenSynthA` picks the port
   (`akikomidi.device`, or `ENV:GFOpenSynth/Port`), else the 68k engine to
   AHI, else the caller's buffer (`GSRenderS16`, for programs that mix their
-  own). Short messages, SysEx, MIDI files (`GSPlayFileA`, looped or not),
+  own). Short messages, SysEx, raw MIDI bytes, MIDI files from disk or
+  memory (`GSPlayFileA`, `GSPlayMemA`, looped or not; pause, seek, position),
   volume, reset. `C:PlaySynth FILE/A,MT32/S,LOOP/S,OUTPUT/K,SOUNDFONT/K,...`.
 - `sh build-amiga.sh` (STOVE= or PREFIX= and NDK_INC=): `lib/gfopensynth.library`
   (no floating point, nothing from a C library), `lib/libgfopensynth.a`

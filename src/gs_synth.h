@@ -116,5 +116,15 @@ uint32_t gs_seq_events(struct gs_seq *q, uint32_t frames, gs_seq_sink cb, void *
 void gs_seq_render(struct gs_seq *q, struct gs_synth *s, int16_t *out, uint32_t frames);
 /* the song's length in frames (walks it once) */
 uint64_t gs_seq_length(struct gs_seq *q);
+/* where the song is: its tick, and its beat (quarter notes; seconds for a
+ * file in SMPTE time) */
+uint32_t gs_seq_tick(const struct gs_seq *q);
+uint32_t gs_seq_beat(const struct gs_seq *q);
+/* moves the song to a beat: from its start, tempo changes are kept and
+ * programs, controllers and bends go to cb (so the parts sound right);
+ * notes before the beat are left out. Past the end it stops at the end. */
+void gs_seq_seek_beat(struct gs_seq *q, uint32_t beat, gs_seq_sink cb, void *ctx);
+/* gs_seq_seek_beat into a synth, its notes let go first */
+void gs_seq_seek_synth(struct gs_seq *q, struct gs_synth *s, uint32_t beat);
 
 #endif

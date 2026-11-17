@@ -40,4 +40,19 @@
 #define GSRenderS16(synth, buffer, frames) \
 	LP3(0x54, ULONG, GSRenderS16, struct GSSynth *, synth, a0, WORD *, buffer, a1, ULONG, frames, d0, , GFOPENSYNTH_BASE_NAME)
 
+#define GSPlayMemA(synth, data, len, tags) \
+	LP4(0x5a, BOOL, GSPlayMemA, struct GSSynth *, synth, a0, CONST UBYTE *, data, a1, ULONG, len, d0, CONST struct TagItem *, tags, a2, , GFOPENSYNTH_BASE_NAME)
+
+#define GSPauseFile(synth, pause) \
+	LP2NR(0x60, GSPauseFile, struct GSSynth *, synth, a0, ULONG, pause, d0, , GFOPENSYNTH_BASE_NAME)
+
+#define GSSeekFile(synth, beat) \
+	LP2NR(0x66, GSSeekFile, struct GSSynth *, synth, a0, ULONG, beat, d0, , GFOPENSYNTH_BASE_NAME)
+
+#define GSWriteBytes(synth, data, len) \
+	LP3NR(0x6c, GSWriteBytes, struct GSSynth *, synth, a0, CONST UBYTE *, data, a1, ULONG, len, d0, , GFOPENSYNTH_BASE_NAME)
+
+#define GSMemLength(data, len) \
+	LP2(0x72, ULONG, GSMemLength, CONST UBYTE *, data, a0, ULONG, len, d0, , GFOPENSYNTH_BASE_NAME)
+
 #endif

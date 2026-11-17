@@ -49,7 +49,7 @@ static void ahi_send(struct GSSynth *s, struct ahi_out *o, int i)
 {
 	struct AHIRequest *r = o->req[i];
 	ObtainSemaphore(&s->lock);
-	if (s->playing) {
+	if (s->playing && !s->paused) {
 		gs_seq_render(&s->seq, &s->syn, (int16_t *)o->buf[i], o->frames);
 		if (s->seq.ended)
 			s->playing = FALSE;
@@ -305,7 +305,7 @@ static void player(void)
 				if (pt.ticking && CheckIO((struct IORequest *)pt.tr)) {
 					WaitIO((struct IORequest *)pt.tr);
 					pt.ticking = FALSE;
-					if (s->playing) {
+					if (s->playing && !s->paused) {
 						port_song(s, &pt);
 						if (s->playing)
 							port_tick(&pt);
@@ -328,10 +328,20 @@ static void player(void)
 			case GSC_WRITE:
 				port_write(&pt, c->data, c->len);
 				break;
-			case GSC_SONG:              /* a file started or stopped (sent without the lock held) */
-				if (s->output == GSOUT_PORT) {
+			case GSC_SEEK:              /* to beat c->len: the parts set as the song has them by then */
+				if (s->output == GSOUT_PORT && s->song) {
 					port_notes_off(&pt);
-					if (s->playing) {
+					ObtainSemaphore(&s->lock);
+					gs_seq_seek_beat(&s->seq, c->len, to_port, &pt);
+					s->playing = TRUE;
+					ReleaseSemaphore(&s->lock);
+				}
+				/* fall through */
+			case GSC_SONG:              /* a file started, stopped, paused or went on (sent without the lock held) */
+				if (s->output == GSOUT_PORT) {
+					if (c->cmd == GSC_SONG)
+						port_notes_off(&pt);
+					if (s->playing && !s->paused) {
 						GetSysTime(&pt.last);
 						pt.carry_us = 0;
 						port_song(s, &pt);

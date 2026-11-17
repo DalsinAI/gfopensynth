@@ -18,6 +18,11 @@ VOID GSSetVolume(struct GSSynth *synth, ULONG volume);
 VOID GSReset(struct GSSynth *synth);
 ULONG GSGetAttr(struct GSSynth *synth, ULONG attr);
 ULONG GSRenderS16(struct GSSynth *synth, WORD *buffer, ULONG frames);
+BOOL GSPlayMemA(struct GSSynth *synth, CONST UBYTE *data, ULONG len, CONST struct TagItem *tags);
+VOID GSPauseFile(struct GSSynth *synth, ULONG pause);
+VOID GSSeekFile(struct GSSynth *synth, ULONG beat);
+VOID GSWriteBytes(struct GSSynth *synth, CONST UBYTE *data, ULONG len);
+ULONG GSMemLength(CONST UBYTE *data, ULONG len);
 
 #ifdef __cplusplus
 }

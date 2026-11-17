@@ -70,6 +70,24 @@ timer.device and sent as bytes. On the 68k the player process keeps two
 linked AHI buffers of 100 ms going. `GSRenderS16` is for programs that mix
 their own (allegro4.library).
 
+For a program that holds its music in memory (allegro4.library: a game's
+MIDI objects come out of its datafile): `GSPlayMemA` plays a MIDI file from
+memory (copied), `GSPauseFile` holds it and lets it go on, `GSSeekFile`
+moves it to a beat (tempo, programs and controllers kept on the way, notes
+left out), `GSWriteBytes` takes raw MIDI bytes as a port does, and
+`GSMemLength` is a file's length without playing it. `GSA_Position`
+(milliseconds) and `GSA_Beat` say where the file is.
+
+## Where the sound goes
+
+- **On the port** the synth is a box in the machine: its sound joins
+  Paula's (and the AHI board's) at the machine's own output. It does not
+  pass through ahi.device, as a real MT-32's would not.
+- **`GSOUT_AHI`**: the 68k engine writes to ahi.device (unit `GSA_Unit`).
+- **`GSOUT_CALLER`**: the program mixes the synth into its own sound.
+  allegro4.library does this when there is no port, so its music goes out
+  with its samples through acgame.library: AHI, with Paula as the fallback.
+
 ## Next
 
 1. (done in this draft) gfopensynth.library.
@@ -77,7 +95,7 @@ their own (allegro4.library).
    gfosautoconfigboards (`cards/akikoplus`) and the runtime, with this
    engine built for the host.
 3. CAMD driver for the port.
-4. allegro4.library's MIDI through it (the "MIDI is silent" gap).
+4. (done: gfopenallegro) allegro4.library's MIDI through it.
 5. The LA engine.
 
 Labs wait until after the Pi 5 update and Dale's go. Tests with real ROMs run

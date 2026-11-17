@@ -574,6 +574,42 @@ static void test_seq(void)
 	CHECK(q.loops == 1 && !q.ended);
 }
 
+/* position and seek: 96 ticks a beat; beat 1 is at 0.5 s, beat 2 at 1.5 s */
+static void test_seek(void)
+{
+	struct gs_seq q;
+	unsigned r;
+	gs_synth_init(&syn, &font, RATE, 24, GS_MODE_GM);
+	make_smf();
+	CHECK(gs_seq_open(&q, smf, (unsigned)smflen, RATE, 0) == 0);
+	CHECK(gs_seq_tick(&q) == 0 && gs_seq_beat(&q) == 0);
+	gs_seq_render(&q, &syn, buf, RATE / 4);                   /* 0.25 s: half a beat at 120 bpm */
+	CHECK(gs_seq_tick(&q) >= 47 && gs_seq_tick(&q) <= 48 && gs_seq_beat(&q) == 0);
+	gs_seq_render(&q, &syn, buf, RATE / 2);                   /* 0.75 s: beat 1 and a quarter at 60 bpm */
+	CHECK(gs_seq_tick(&q) >= 119 && gs_seq_tick(&q) <= 120 && gs_seq_beat(&q) == 1);
+	CHECK(gs_synth_active(&syn) == 0);
+	gs_seq_seek_synth(&q, &syn, 2);
+	CHECK(gs_seq_beat(&q) == 2 && gs_seq_tick(&q) == 192);
+	CHECK((q.now >> 16) == (unsigned long long)RATE * 3 / 2); /* the tempo change on the way was kept */
+	CHECK(gs_synth_active(&syn) == 0);                        /* the note before the beat was left out */
+	gs_seq_render(&q, &syn, buf, 4);
+	CHECK(gs_synth_active(&syn) == 1);                        /* the note on the beat plays */
+	gs_seq_seek_synth(&q, &syn, 0);
+	CHECK(gs_seq_tick(&q) == 0 && (q.now >> 16) == 0);
+	gs_seq_seek_synth(&q, &syn, 99);                          /* past the end: the end */
+	CHECK(gs_seq_tick(&q) == 288 && !q.ended);
+	gs_seq_render(&q, &syn, buf, 4);
+	CHECK(q.ended);
+	/* the port's way: milliseconds, events to a sink */
+	CHECK(gs_seq_open(&q, smf, (unsigned)smflen, 1000, 0) == 0);
+	nsunk = 0; ms_now = 0;
+	gs_seq_seek_beat(&q, 2, sink, 0);
+	CHECK(nsunk == 0 && (q.now >> 16) >= 1499 && (q.now >> 16) <= 1500);
+	r = gs_seq_events(&q, 0, sink, 0);
+	CHECK(r == 1 && nsunk == 2 && sunk[0] == GS_EV_SYSEX && sunk[1] == GS_EV_MSG);
+	CHECK(gs_seq_beat(&q) == 2);
+}
+
 int main(void)
 {
 	test_tables();
@@ -585,6 +621,7 @@ int main(void)
 	test_mt32_mode();
 	test_seq();
 	test_seq_events();
+	test_seek();
 	printf("%s: %d checks, %d failed (long is %d bits)\n", fails ? "FAIL" : "PASS", checks, fails,
 	       (int)sizeof(long) * 8);
 	return fails != 0;

@@ -48,3 +48,8 @@ void gs_set_volume(struct GSSynth *s, unsigned long v) { if (s && gs_available()
 void gs_reset(struct GSSynth *s) { if (s && gs_available()) GSReset(s); }
 unsigned long gs_get(struct GSSynth *s, unsigned long a) { return s && gs_available() ? GSGetAttr(s, a) : 0; }
 unsigned long gs_render(struct GSSynth *s, short *b, unsigned long f) { return s && gs_available() ? GSRenderS16(s, (WORD *)b, f) : 0; }
+int gs_play_mem(struct GSSynth *s, const unsigned char *d, unsigned long n, const struct TagItem *tags) { return s && gs_available() ? GSPlayMemA(s, d, n, tags) : 0; }
+void gs_pause_file(struct GSSynth *s, int pause) { if (s && gs_available()) GSPauseFile(s, (ULONG)(pause != 0)); }
+void gs_seek_file(struct GSSynth *s, unsigned long beat) { if (s && gs_available()) GSSeekFile(s, beat); }
+void gs_write(struct GSSynth *s, const unsigned char *d, unsigned long n) { if (s && gs_available()) GSWriteBytes(s, d, n); }
+unsigned long gs_mem_length(const unsigned char *d, unsigned long n) { return gs_available() ? GSMemLength(d, n) : 0; }
