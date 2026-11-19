@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes midi/Dance/*.mid: dance tunes of our own, for Media:midi/Dance
+"""Writes midi/Dance/*.mid: dance tunes of our own, for MediaFiles:midi/Dance
 (GFOpenBlanker's music, OpenPlay). Four on the floor with a heavy kick and
 bass, 124 to 130 beats a minute, General MIDI, format 1, 96 ticks a beat.
 Every note comes from the tables below: nothing is taken from anyone's tune.

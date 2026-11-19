@@ -1,9 +1,9 @@
 # The MIDI collection
 
 Public domain music as Standard MIDI Files, to play through GFOpenSynth:
-`PlaySynth Media:midi/Joplin/entertainer.mid`, or open a file in OpenPlay.
-The GFOpenSynth part installs this drawer as `Media:midi` where a volume
-named Media is mounted.
+`PlaySynth MediaFiles:midi/Joplin/entertainer.mid`, or open a file in OpenPlay.
+The GFOpenSynth part installs this drawer as `MediaFiles:midi` where a volume
+named MediaFiles is mounted.
 
 Every file was made by us with GNU LilyPond from a source file of the
 Mutopia Project (https://www.mutopiaproject.org) whose own header places

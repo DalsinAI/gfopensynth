@@ -1,6 +1,6 @@
 #!/bin/sh
 # The release files from a build-amiga.sh OUT:
-#   gfopensynth-VERSION-part.tar.gz   Parts/GFOpenSynth: the GFOpenUp part, with the MIDI collection for Media:midi
+#   gfopensynth-VERSION-part.tar.gz   Parts/GFOpenSynth: the GFOpenUp part, with the MIDI collection for MediaFiles:midi
 #                                     (GFOpenUpTool INSTALL Parts/GFOpenSynth)
 #   gfopensynth-VERSION-sdk.tar.gz    include/, libgfopensynth.a, docs, README, LICENSE
 #   SHA256SUMS
@@ -32,13 +32,14 @@ add "C/PlaySynth" "C:PlaySynth"
 add "Devs/SoundFonts/basic.sf2" "DEVS:SoundFonts/basic.sf2"
 add "Demo/gfopensynth-demo.mid" "DEVS:SoundFonts/gfopensynth-demo.mid"
 PART
-# The MIDI collection (midi/, public domain pieces, each with its source in SOURCES.tsv) goes to Media:midi where
-# a volume named Media is mounted (the standard build's DH4:; GFOpenUpTool 0.8.22's "when MediaDrive"). An older
-# GFOpenUpTool leaves these lines out.
+# The MIDI collection (midi/, public domain pieces, each with its source in SOURCES.tsv) goes to MediaFiles:midi
+# where a volume named MediaFiles is mounted (the standard build's DH4:; GFOpenUpTool 0.8.25's "when MediaDrive").
+# DH4 was Media until Dale, 19 Nov 2026: "change dh4 to MediaFiles" (a volume Media met the MEDIA: handler's name).
+# An older GFOpenUpTool leaves these lines out.
 mkdir -p "$P/Media"
 cp -R "$HERE/midi" "$P/Media/midi"
 (cd "$P" && find Media/midi -type f | LC_ALL=C sort) | while IFS= read -r f; do
-    printf 'when MediaDrive add "%s" "Media:%s"\n' "$f" "${f#Media/}" >> "$P/Part"
+    printf 'when MediaDrive add "%s" "MediaFiles:%s"\n' "$f" "${f#Media/}" >> "$P/Part"
 done
 (cd "$T/part" && tar -czf "$DEST/gfopensynth-$VERSION-part.tar.gz" --owner=0 --group=0 Parts)
 
