@@ -36,8 +36,8 @@ Status: the engine and the library (this draft). The AkikoPlus MIDI port
 - `src/gs_mt32.c`: notes from the timbres a song sends (partial pairs, ring modulation, parts, 32 partials), step 3 of our own MT-32 engine
   (`docs/MT32-ENGINE.md`); not yet used by the library.
 - `midi/`: the MIDI collection, 700 public domain pieces made from the Mutopia Project's public domain
-  sources, each with its source in `midi/SOURCES.tsv` (`midi/README.md`). The part installs it as `Media:midi`
-  where a volume named Media is mounted.
+  sources, each with its source in `midi/SOURCES.tsv` (`midi/README.md`). The part installs it as `MediaFiles:midi`
+  where a volume named MediaFiles is mounted.
 - `demo/gfopensynth-demo.mid`: a tune of our own (`tools/make_demo_mid.py`).
   `tools/smf2wav.c` plays a MIDI file into a WAV on a PC with the same engine.
 - `sh package.sh OUT DEST VERSION`: the release files (the GFOpenUp part

@@ -54,7 +54,9 @@ $CC -O1 -g $SAN -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/basic_sf2_test" "$H
 $CC -O1 -Wall -Wextra -Werror -I"$HERE/src" -o "$OUT/smf2wav" "$HERE/tools/smf2wav.c" \
     "$HERE/src/gs_midi.c" "$HERE/src/gs_sf2.c" "$HERE/src/gs_synth.c" "$HERE/src/gs_tables.c" -lm
 "$OUT/smf2wav" "$OUT/basic.sf2" "$HERE/demo/gfopensynth-demo.mid" "$OUT/gfopensynth-demo.wav"
-# the MIDI collection (midi/, installed to Media:midi): each file has its source and licence, opens and sounds
+# the part: the MIDI collection goes to MediaFiles:midi
+sh "$HERE/tests/package_part_test.sh"
+# the MIDI collection (midi/, installed to MediaFiles:midi): each file has its source and licence, opens and sounds
 if command -v python3 >/dev/null 2>&1; then
     python3 "$HERE/tests/midi_collection_check.py" "$HERE/midi"
     python3 "$HERE/tools/make_dance_mid.py" --check
